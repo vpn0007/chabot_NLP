@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Query Chatbot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+            color: #333;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0;
+            padding: 15px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+            color: white;
+            padding: 10px;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+
+        .conversation-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 10px 15px;
+            margin: 10px 0;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .conversation-controls {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin: 8px 0;
+            flex-wrap: wrap;
+        }
+
+        .conversation-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .conversation-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .conversation-btn.active {
+            background: rgba(255, 255, 255, 0.4);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Schema display styles */
+        .schema-display {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .table-schema {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .table-schema h4 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .columns-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .column-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .column-name {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .column-type {
+            color: #718096;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        /* History display styles */
+        .history-display {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .conversation-item {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .conv-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+
+        .conv-number {
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .conv-query {
+            font-weight: 600;
+            color: #2d3748;
+            flex: 1;
+        }
+
+        .conv-sql {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            overflow-x: auto;
+        }
+
+        .conv-result {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .conv-result.success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .conv-result.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        /* Help display styles */
+        .help-display {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .help-section {
+            margin-bottom: 25px;
+        }
+
+        .help-section h4 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .help-section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .help-section li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+            color: #4a5568;
+        }
+
+        .help-section li:last-child {
+            border-bottom: none;
+        }
+
+        /* Chat history display styles */
+        .chat-history-display {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .chat-messages {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .chat-message {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            position: relative;
+        }
+
+        .user-message {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            margin-left: 20px;
+        }
+
+        .bot-message {
+            background: #f3e5f5;
+            border-left: 4px solid #9c27b0;
+            margin-right: 20px;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+        }
+
+        .message-time {
+            background: #667eea;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .message-sender {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .message-content {
+            color: #4a5568;
+            line-height: 1.5;
+        }
+
+        .sql-response {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            overflow-x: auto;
+        }
+
+        .result-response {
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .result-response:not(.error) {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .result-response.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        .manual-browser-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .manual-browser-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .browser-status {
+            margin-top: 10px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.8rem;
+        }
+
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            background: white;
+            border-radius: 15px;
+            padding: 5px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .nav-tab {
+            padding: 12px 24px;
+            border: none;
+            background: transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: #4a5568;
+        }
+
+        .nav-tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .nav-tab:hover:not(.active) {
+            background: #f7fafc;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .query-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            height: fit-content;
+        }
+
+        .query-panel h2 {
+            color: #4a5568;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .query-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            resize: vertical;
+            min-height: 80px;
+            font-family: inherit;
+        }
+
+        .query-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .query-btn {
+            width: 100%;
+            padding: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .query-btn:hover {
+            background: #5a67d8;
+        }
+
+        .query-btn:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        .query-options {
+            margin-bottom: 12px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .query-options label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #4a5568;
+            font-size: 0.85rem;
+        }
+
+        .row-limit-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: white;
+            margin-bottom: 8px;
+        }
+
+        .row-limit-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .query-options small {
+            color: #718096;
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+
+        .init-btn {
+            width: 100%;
+            padding: 10px;
+            background: #48bb78;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            margin-bottom: 12px;
+        }
+
+        .init-btn:hover {
+            background: #38a169;
+        }
+
+        .init-btn:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        .results-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .export-btn {
+            background: #48bb78;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .export-btn:hover {
+            background: #38a169;
+        }
+
+        .full-table-btn {
+            background: #3182ce;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .full-table-btn:hover {
+            background: #2c5aa0;
+        }
+
+        .full-table-btn:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+
+
+
+        .results-header h2 {
+            color: #4a5568;
+            font-size: 1.3rem;
+        }
+
+        .status-indicator {
+            font-size: 0.9rem;
+            color: #718096;
+        }
+
+        .sql-display {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: #2d3748;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
+        .data-preview {
+            background: #fef5e7;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .preview-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .preview-btn {
+            background: #f59e0b;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .preview-btn:hover {
+            background: #d97706;
+        }
+
+        .preview-info {
+            font-size: 0.8rem;
+            color: #92400e;
+        }
+
+        .raw-data {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            max-height: 200px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+
+        .results-container {
+            flex: 1;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            margin-top: 10px;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            table-layout: fixed;
+            min-width: 2000px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            white-space: nowrap;
+            /* Ensure proper sticky positioning */
+            position: relative;
+        }
+
+        /* Force horizontal scroll for wide tables */
+        .results-table.wide {
+            min-width: 2000px;
+            width: 2000px;
+        }
+
+        /* Ensure horizontal scrolling works properly */
+        .results-table-wrapper.force-horizontal-scroll {
+            overflow-x: scroll !important;
+        }
+
+        .results-table-wrapper {
+            flex: 1;
+            overflow: auto;
+            border-radius: 8px;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+            position: relative;
+            min-height: 0;
+            max-height: 80vh;
+            background: white;
+            overflow-x: auto;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #667eea #f1f1f1;
+            /* Ensure proper positioning context for sticky elements */
+            transform: translateZ(0);
+            /* Additional properties for better sticky support */
+            will-change: scroll-position;
+            -webkit-overflow-scrolling: touch;
+            /* Force horizontal scroll for testing sticky behavior */
+            overflow-x: scroll !important;
+        }
+
+        /* Dynamic scrollbars - only show when needed */
+        .results-table-wrapper::-webkit-scrollbar {
+            height: 12px;
+            width: 12px;
+        }
+
+        .results-table-wrapper::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 6px;
+        }
+
+        .results-table-wrapper::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 6px;
+        }
+
+        .results-table-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #5a67d8;
+        }
+
+
+
+        .results-table th {
+            background: linear-gradient(135deg, #667eea 0%, #5a67d8 100%);
+            color: white;
+            padding: 8px 6px;
+            text-align: left;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            white-space: nowrap;
+            min-width: 150px;
+            max-width: 200px;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* First column header - sticky to left during horizontal scroll */
+        .results-table th:first-child {
+            position: sticky !important;
+            left: 0 !important;
+            z-index: 11 !important;
+            background: linear-gradient(135deg, #667eea 0%, #5a67d8 100%) !important;
+            /* Additional properties for better sticky support */
+            will-change: transform;
+            backface-visibility: hidden;
+            /* Visual indicator for sticky behavior */
+            border-right: 3px solid #ff6b6b;
+        }
+
+        .results-table td {
+            padding: 6px;
+            border-bottom: 1px solid #e2e8f0;
+            word-break: break-word;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 150px;
+            max-width: 200px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            background: white;
+            line-height: 1.3;
+            vertical-align: top;
+        }
+
+        /* First column data cells - sticky to left during horizontal scroll */
+        .results-table td:first-child {
+            position: sticky !important;
+            left: 0 !important;
+            z-index: 9 !important;
+            background: white !important;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+            /* Additional properties for better sticky support */
+            will-change: transform;
+            backface-visibility: hidden;
+            /* Visual indicator for sticky behavior */
+            border-right: 2px solid #ff6b6b;
+        }
+
+        /* Ensure proper background colors for sticky elements */
+        .results-table tr:nth-child(even) td:first-child {
+            background: #f8f9fa;
+        }
+
+        .results-table tr:nth-child(odd) td:first-child {
+            background: white;
+        }
+
+        .results-table tr:hover td:first-child {
+            background: #e3f2fd;
+        }
+
+        /* Responsive table sizing */
+        .results-table.compact {
+            font-size: 0.8rem;
+        }
+
+        .results-table.compact td,
+        .results-table.compact th {
+            padding: 6px 8px;
+        }
+
+        .results-table.wide {
+            min-width: 1200px;
+            width: 1200px;
+        }
+
+        .results-table.narrow {
+            min-width: 400px;
+            width: auto;
+        }
+
+        .results-table.medium {
+            min-width: 600px;
+            width: auto;
+        }
+
+        /* Force horizontal scroll for wide tables */
+        .results-table-wrapper:has(.wide) {
+            overflow-x: scroll !important;
+        }
+
+        /* Ensure horizontal scrolling works */
+        .results-table-wrapper {
+            scrollbar-width: thin;
+            scrollbar-color: #667eea #f1f1f1;
+        }
+
+        /* Force horizontal scroll when needed */
+        .results-table-wrapper.force-horizontal-scroll {
+            overflow-x: scroll !important;
+        }
+
+        /* Always show horizontal scrollbar for wide tables */
+        .results-table.wide + .results-table-wrapper,
+        .results-table-wrapper:has(.wide) {
+            overflow-x: scroll !important;
+        }
+
+        /* Ensure table cells don't wrap and force horizontal scroll */
+        .results-table.wide td,
+        .results-table.wide th {
+            white-space: nowrap !important;
+            overflow: hidden !important;
+        }
+
+        /* Ensure proper spacing for different table sizes */
+        .results-table.small {
+            margin: 0 auto;
+            max-width: 90%;
+        }
+
+        .results-table.medium {
+            margin: 0 auto;
+            max-width: 95%;
+        }
+
+        /* Responsive breakpoints */
+        @media (max-width: 768px) {
+            .results-table-wrapper {
+                overflow-x: auto;
+                overflow-y: auto;
+            }
+            
+            .results-table {
+                font-size: 0.75rem;
+            }
+            
+            .results-table td,
+            .results-table th {
+                padding: 6px 4px;
+                max-width: 200px;
+            }
+        }
+
+        /* Ensure data is always visible */
+        .results-table td .cell-content {
+            display: block;
+            max-height: none;
+            overflow: visible;
+            white-space: normal;
+            word-break: break-word;
+        }
+
+        /* Hover effect for better readability */
+        .results-table td:hover {
+            background: #f0f4ff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            white-space: normal;
+            overflow: visible;
+            z-index: 100;
+            position: relative;
+        }
+
+        .results-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .results-table tr:nth-child(even) td:first-child {
+            background: #f8f9fa;
+        }
+
+        .results-table tr:nth-child(odd) td:first-child {
+            background: white;
+        }
+
+        .results-table tr:hover {
+            background: #e3f2fd;
+        }
+
+        .results-table tr:hover td:first-child {
+            background: #e3f2fd;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border: 1px solid #feb2b2;
+            font-size: 0.85rem;
+        }
+
+        .success {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border: 1px solid #9ae6b4;
+            font-size: 0.85rem;
+        }
+
+        .info {
+            background: #bee3f8;
+            color: #2a4365;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border: 1px solid #90cdf4;
+            font-size: 0.85rem;
+        }
+
+        .schema-info {
+            background: #fef5e7;
+            color: #744210;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #fed7aa;
+            font-size: 0.9rem;
+        }
+
+        .schema-info h3 {
+            margin-bottom: 10px;
+            color: #744210;
+        }
+
+        .schema-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .schema-table th {
+            background: #fed7aa;
+            color: #744210;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.8rem;
+        }
+
+        .schema-table td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #fed7aa;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .results-panel {
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗄️ SQL Query Chatbot</h1>
+            <p>Ask questions in English and get SQL results instantly! Follow-up queries supported.</p>
+            <button class="manual-browser-btn" onclick="window.open('http://localhost:5004', '_blank')">
+                🌐 Open in New Tab
+            </button>
+            <div class="browser-status" id="browserStatus" style="display: none;">
+                <small>🔄 Attempting to open browser automatically...</small>
+            </div>
+            
+            <div class="conversation-info" id="conversationInfo" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>🔄 Conversation #<span id="conversationCount">0</span></span>
+                    <span>📊 <span id="totalQueries">0</span> queries processed</span>
+                </div>
+            </div>
+            
+            <div class="conversation-controls">
+                <button class="conversation-btn" onclick="showSchema()">📋 Schema</button>
+                <button class="conversation-btn" onclick="showChatHistory()">💬 Chat</button>
+                <button class="conversation-btn" onclick="showHistory()">📜 History</button>
+                <button class="conversation-btn" onclick="clearHistory()">🧹 Clear History</button>
+                <button class="conversation-btn" onclick="showHelp()">❓ Help</button>
+            </div>
+        </div>
+
+
+
+        <div class="main-content">
+            <!-- Query Panel -->
+            <div class="query-panel">
+                <h2>🔍 English to SQL</h2>
+                
+                <button class="init-btn" id="initBtn" type="button">🚀 Initialize Database Connection</button>
+                
+                <textarea 
+                    class="query-input" 
+                    id="queryInput" 
+                    placeholder="Enter your English query here...&#10;Examples: Show all patients, Count users, Find customers"
+                    disabled
+                ></textarea>
+                
+                <div class="query-options">
+                    <label for="rowLimit">📊 Row Limit:</label>
+                    <select id="rowLimit" class="row-limit-select">
+                        <option value="none">No Limit</option>
+                        <option value="10">10 Rows</option>
+                        <option value="25">25 Rows</option>
+                        <option value="50">50 Rows</option>
+                        <option value="100">100 Rows</option>
+                    </select>
+                    <small>💡 Get all rows or limit results</small>
+                </div>
+                
+                <button class="query-btn" id="queryBtn" type="button" disabled>🔍 Generate & Execute SQL</button>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    Processing your query...
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="results-panel">
+                <div class="results-header">
+                    <h2>📊 Results</h2>
+                    <div class="header-actions">
+                        <button class="full-table-btn" id="fullTableBtn" style="display: none;" onclick="openFullTable()" title="Full Table View">
+                            🔍 Full View
+                        </button>
+                        <button class="export-btn" id="exportBtn" style="display: none;" onclick="exportResults()">
+                            📥 Export
+                        </button>
+                        <div class="status-indicator" id="statusIndicator">Not connected</div>
+                    </div>
+                </div>
+
+                <div id="messageContainer"></div>
+                
+                <div class="sql-display" id="sqlDisplay" style="display: none;">
+                    <strong>Generated SQL:</strong>
+                    <div id="sqlQuery"></div>
+                </div>
+
+                <div class="data-preview" id="dataPreview" style="display: none;">
+                    <strong>Data Preview:</strong>
+                    <div class="preview-controls">
+                        <button class="preview-btn" onclick="toggleDataPreview()">👁️ Raw Data</button>
+                        <span class="preview-info">Click to see raw format</span>
+                    </div>
+                    <div class="raw-data" id="rawData" style="display: none;"></div>
+                </div>
+
+                <div class="results-container" id="resultsContainer">
+                    <div style="text-align: center; padding: 40px; color: #718096;">
+                        <h3>No results yet</h3>
+                        <p>Initialize the database connection and run a query to see results here.</p>
+                        <p><small>💡 All tables are displayed with full scrolling - use horizontal scroll for wide data and vertical scroll for long results</small></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isInitialized = false;
+
+        // DOM elements
+        const initBtn = document.getElementById('initBtn');
+        const browserStatus = document.getElementById('browserStatus');
+
+        // Show browser status on page load
+        window.addEventListener('load', () => {
+            // Check if this page was opened automatically
+            if (document.referrer === '' || document.referrer.includes('localhost')) {
+                browserStatus.style.display = 'block';
+                setTimeout(() => {
+                    browserStatus.innerHTML = '<small>✅ Browser opened successfully!</small>';
+                    setTimeout(() => {
+                        browserStatus.style.display = 'none';
+                    }, 3000);
+                }, 2000);
+            }
+        });
+        const queryInput = document.getElementById('queryInput');
+        const queryBtn = document.getElementById('queryBtn');
+        const loading = document.getElementById('loading');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const messageContainer = document.getElementById('messageContainer');
+        const sqlDisplay = document.getElementById('sqlDisplay');
+        const sqlQuery = document.getElementById('sqlQuery');
+        const resultsContainer = document.getElementById('resultsContainer');
+
+        // Initialize database connection
+        initBtn.addEventListener('click', async (event) => {
+            // Prevent any default form submission behavior
+            event.preventDefault();
+            
+            showLoading(true);
+            initBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/sql/init', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    isInitialized = true;
+                    statusIndicator.textContent = `Connected (${data.tables.length} tables)`;
+                    statusIndicator.style.color = '#48bb78';
+                    
+                    queryInput.disabled = false;
+                    queryBtn.disabled = false;
+                    
+                    showMessage('success', 'Database connection established successfully!');
+                    
+                    // Show schema information
+                    showSchemaInfo(data.tables);
+                } else {
+                    throw new Error(data.error || 'Failed to initialize database connection');
+                }
+            } catch (error) {
+                showMessage('error', `Error: ${error.message}`);
+                statusIndicator.textContent = 'Connection failed';
+                statusIndicator.style.color = '#e53e3e';
+            } finally {
+                showLoading(false);
+                initBtn.disabled = false;
+            }
+        });
+
+        // Process SQL query
+        queryBtn.addEventListener('click', (event) => {
+            console.log('Query button clicked, preventing default behavior');
+            event.preventDefault();
+            processQuery();
+        });
+        queryInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                console.log('Ctrl+Enter pressed, preventing default behavior');
+                e.preventDefault();
+                processQuery();
+            }
+        });
+
+        async function processQuery() {
+            console.log('processQuery function called');
+            const query = queryInput.value.trim();
+            if (!query || !isInitialized) {
+                console.log('Query validation failed:', { query: query, isInitialized: isInitialized });
+                return;
+            }
+
+            console.log('Starting query processing for:', query);
+            showLoading(true);
+            queryBtn.disabled = true;
+
+            // Get row limit from the select element
+            const rowLimitSelect = document.getElementById('rowLimit');
+            const rowLimit = rowLimitSelect.value === 'none' ? null : parseInt(rowLimitSelect.value);
+
+            try {
+                const response = await fetch('/api/sql/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        query: query,
+                        row_limit: rowLimit
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Show generated SQL
+                    sqlQuery.textContent = data.sql_query;
+                    sqlDisplay.style.display = 'block';
+                    
+                    // Update conversation information
+                    if (data.conversation_count !== undefined) {
+                        updateConversationInfo(data.conversation_count);
+                    }
+                    
+                    if (data.success) {
+                        console.log('Query successful, calling displayResults with:', data);
+                        showMessage('success', `Query executed successfully! Found ${data.row_count} rows.`);
+                        displayResults(data.columns, data.results);
+                        showDataPreview(data.columns, data.results);
+                    } else {
+                        console.log('Query failed:', data);
+                        showMessage('error', `Execution error: ${data.error}`);
+                        clearResults();
+                        hideDataPreview();
+                    }
+                } else {
+                    throw new Error(data.error || 'Failed to process query');
+                }
+            } catch (error) {
+                showMessage('error', `Error: ${error.message}`);
+                clearResults();
+            } finally {
+                showLoading(false);
+                queryBtn.disabled = false;
+            }
+        }
+
+        function displayResults(columns, results) {
+            console.log('displayResults called with:', { columns, results, resultsLength: results?.length });
+            console.log('resultsContainer:', resultsContainer);
+            
+            if (!columns || !results || results.length === 0) {
+                console.log('No results to display');
+                resultsContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #718096;"><h3>No results found</h3></div>';
+                document.getElementById('exportBtn').style.display = 'none';
+                return;
+            }
+
+            // Store results globally for export
+            window.currentResults = { columns, results };
+
+            // Always show full table with proper sizing
+            const isWideTable = columns.length > 8;
+            const isLongTable = results.length > 15;
+            
+            let tableClasses = 'results-table';
+            if (isWideTable) tableClasses += ' wide';
+            if (isLongTable) tableClasses += ' long';
+
+            console.log('Table classes:', tableClasses);
+            console.log('Is wide table:', isWideTable);
+
+            let tableHTML = '<div class="results-table-wrapper">';
+            tableHTML += `<table class="${tableClasses}">`;
+            
+            // Header
+            tableHTML += '<thead><tr>';
+            columns.forEach(col => {
+                tableHTML += `<th>${escapeHtml(String(col))}</th>`;
+            });
+            tableHTML += '</tr></thead>';
+            
+            // Body
+            tableHTML += '<tbody>';
+            results.forEach((row, rowIndex) => {
+                tableHTML += '<tr>';
+                row.forEach((cell, colIndex) => {
+                    if (cell === null || cell === undefined) {
+                        tableHTML += '<td><em>null</em></td>';
+                    } else {
+                        const cellStr = String(cell);
+                        // Show full data without truncation
+                        const fullValue = escapeHtml(cellStr);
+                        tableHTML += `<td data-full-value="${fullValue}"><div class="cell-content">${fullValue}</div></td>`;
+                    }
+                });
+                tableHTML += '</tr>';
+            });
+            tableHTML += '</tbody></table>';
+            tableHTML += '</div>';
+            
+            resultsContainer.innerHTML = tableHTML;
+            
+            // Debug: Check if sticky positioning is applied
+            setTimeout(() => {
+                const firstHeader = document.querySelector('.results-table th:first-child');
+                const firstDataCell = document.querySelector('.results-table td:first-child');
+                console.log('First header sticky position:', firstHeader?.style.position);
+                console.log('First header sticky left:', firstHeader?.style.left);
+                console.log('First data cell sticky position:', firstDataCell?.style.position);
+                console.log('First data cell sticky left:', firstDataCell?.style.left);
+                console.log('Table wrapper overflow-x:', document.querySelector('.results-table-wrapper')?.style.overflowX);
+            }, 100);
+            
+            // Show export and full table buttons
+            document.getElementById('exportBtn').style.display = 'block';
+            document.getElementById('fullTableBtn').style.display = 'block';
+            
+            // Add click handlers for full data display
+            addTableInteractivity();
+            
+            // Optimize scrollbars after table is rendered
+            setTimeout(() => {
+                optimizeTableScrollbars();
+            }, 100);
+            
+            // Add window resize handler for responsive behavior
+            if (!window.resizeHandlerAdded) {
+                window.addEventListener('resize', optimizeTableScrollbars);
+                window.resizeHandlerAdded = true;
+            }
+        }
+
+        function optimizeTableScrollbars() {
+            const wrapper = document.querySelector('.results-table-wrapper');
+            const table = document.querySelector('.results-table');
+            
+            if (!wrapper || !table) return;
+            
+            // Force table to have minimum width for horizontal scrolling
+            const columnCount = table.querySelectorAll('th').length;
+            const minTableWidth = Math.max(800, columnCount * 150);
+            
+            // Set appropriate table width based on content
+            if (table.classList.contains('wide')) {
+                table.style.minWidth = '1200px';
+                table.style.width = '1200px';
+            } else if (table.classList.contains('narrow')) {
+                table.style.minWidth = '400px';
+                table.style.width = 'auto';
+            } else if (table.classList.contains('medium')) {
+                table.style.minWidth = '600px';
+                table.style.width = 'auto';
+            } else {
+                table.style.minWidth = minTableWidth + 'px';
+                table.style.width = minTableWidth + 'px';
+            }
+            
+            // Force horizontal scroll if table is wider than container
+            if (table.scrollWidth > wrapper.clientWidth) {
+                wrapper.style.overflowX = 'scroll';
+                console.log('Forcing horizontal scroll - Table width:', table.scrollWidth, 'Wrapper width:', wrapper.clientWidth);
+            }
+            
+            // Log table dimensions for debugging
+            console.log('Table optimization:', {
+                tableWidth: table.scrollWidth,
+                wrapperWidth: wrapper.clientWidth,
+                tableHeight: table.scrollHeight,
+                wrapperHeight: wrapper.clientHeight,
+                needsHorizontal: table.scrollWidth > wrapper.clientWidth,
+                classes: table.className,
+                minTableWidth: minTableWidth,
+                columnsCount: columnCount
+            });
+        }
+
+        function addTableInteractivity() {
+            const cells = document.querySelectorAll('.results-table td');
+            cells.forEach(cell => {
+                cell.addEventListener('click', function() {
+                    const fullValue = this.getAttribute('data-full-value');
+                    if (fullValue && fullValue.length > 100) {
+                        showFullDataModal(fullValue);
+                    }
+                });
+                
+                // Add visual feedback for clickable cells
+                const cellContent = cell.querySelector('.cell-content');
+                if (cellContent && cellContent.textContent.length > 100) {
+                    cell.style.cursor = 'pointer';
+                    cell.title = 'Click to view full content';
+                }
+            });
+        }
+
+
+
+
+
+        function showFullDataModal(content) {
+            // Create modal for full data display
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.7);
+                z-index: 1000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            `;
+            
+            const modalContent = document.createElement('div');
+            modalContent.style.cssText = `
+                background: white;
+                padding: 20px;
+                border-radius: 10px;
+                max-width: 80%;
+                max-height: 80%;
+                overflow: auto;
+                font-family: 'Courier New', monospace;
+                white-space: pre-wrap;
+                word-break: break-word;
+            `;
+            
+            modalContent.textContent = content;
+            
+            modal.appendChild(modalContent);
+            document.body.appendChild(modal);
+            
+            modal.addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+        }
+
+        function exportResults() {
+            if (!window.currentResults) {
+                showMessage('error', 'No results to export');
+                return;
+            }
+
+            const { columns, results } = window.currentResults;
+            
+            // Create CSV content
+            let csvContent = columns.join(',') + '\n';
+            results.forEach(row => {
+                const csvRow = row.map(cell => {
+                    if (cell === null || cell === undefined) return '';
+                    const cellStr = String(cell);
+                    // Escape quotes and wrap in quotes if contains comma or newline
+                    if (cellStr.includes(',') || cellStr.includes('\n') || cellStr.includes('"')) {
+                        return '"' + cellStr.replace(/"/g, '""') + '"';
+                    }
+                    return cellStr;
+                });
+                csvContent += csvRow.join(',') + '\n';
+            });
+
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'sql_results.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showMessage('success', 'Results exported to CSV successfully!');
+        }
+
+        function showDataPreview(columns, results) {
+            const dataPreview = document.getElementById('dataPreview');
+            const rawData = document.getElementById('rawData');
+            
+            dataPreview.style.display = 'block';
+            
+            // Create raw data preview
+            let previewText = `Columns: ${columns.join(', ')}\n\n`;
+            previewText += `Total Rows: ${results.length}\n\n`;
+            previewText += `Sample Data (first 3 rows):\n`;
+            previewText += '='.repeat(50) + '\n';
+            
+            results.slice(0, 3).forEach((row, index) => {
+                previewText += `Row ${index + 1}: ${JSON.stringify(row, null, 2)}\n`;
+                previewText += '-'.repeat(30) + '\n';
+            });
+            
+            if (results.length > 3) {
+                previewText += `... and ${results.length - 3} more rows\n`;
+            }
+            
+            rawData.textContent = previewText;
+        }
+
+        function hideDataPreview() {
+            document.getElementById('dataPreview').style.display = 'none';
+        }
+
+        function toggleDataPreview() {
+            const rawData = document.getElementById('rawData');
+            if (rawData.style.display === 'none') {
+                rawData.style.display = 'block';
+            } else {
+                rawData.style.display = 'none';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function clearResults() {
+            resultsContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #718096;"><h3>No results to display</h3></div>';
+            document.getElementById('exportBtn').style.display = 'none';
+            document.getElementById('fullTableBtn').style.display = 'none';
+        }
+
+        function showSchemaInfo(tables) {
+            const schemaDiv = document.createElement('div');
+            schemaDiv.className = 'schema-info';
+            schemaDiv.innerHTML = `
+                <h3>📋 Database Schema</h3>
+                <p>Available tables: ${tables.join(', ')}</p>
+            `;
+            messageContainer.appendChild(schemaDiv);
+            
+            // Remove after 10 seconds
+            setTimeout(() => {
+                if (schemaDiv.parentNode) {
+                    schemaDiv.remove();
+                }
+            }, 10000);
+        }
+
+        function showLoading(show) {
+            if (show) {
+                loading.classList.add('show');
+            } else {
+                loading.classList.remove('show');
+            }
+        }
+
+        function showMessage(type, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type;
+            messageDiv.textContent = text;
+            
+            // Insert at the beginning
+            messageContainer.insertBefore(messageDiv, messageContainer.firstChild);
+            
+            // Remove after 8 seconds
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.remove();
+                }
+            }, 8000);
+        }
+
+        function openFullTable() {
+            if (!window.currentResults || !window.currentResults.columns || !window.currentResults.results) {
+                showMessage('error', 'No results available to display');
+                return;
+            }
+
+            // Create a new window with the full table
+            const newWindow = window.open('', '_blank', 'width=1400,height=800,scrollbars=yes,resizable=yes');
+            
+            if (!newWindow) {
+                showMessage('error', 'Please allow popups to open the full table view');
+                return;
+            }
+
+            // Create the HTML content for the new window
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Full Table View - SQL Results</title>
+                    <style>
+                        body {
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            margin: 20px;
+                            background: #f8fafc;
+                            overflow-x: auto;
+                        }
+                        .header {
+                            background: #667eea;
+                            color: white;
+                            padding: 20px;
+                            border-radius: 10px;
+                            margin-bottom: 20px;
+                            text-align: center;
+                        }
+                        .header h1 {
+                            margin: 0;
+                            font-size: 1.8rem;
+                        }
+                        .table-container {
+                            background: white;
+                            border-radius: 10px;
+                            padding: 20px;
+                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                            overflow: auto;
+                            max-height: 70vh;
+                            position: relative;
+                        }
+                        .full-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            font-size: 0.9rem;
+                            min-width: 1200px;
+                            position: relative;
+                        }
+                        .full-table thead {
+                            position: sticky;
+                            top: 0;
+                            z-index: 1000;
+                        }
+                        .full-table th {
+                            background: #667eea;
+                            color: white;
+                            padding: 12px 8px;
+                            text-align: left;
+                            position: sticky;
+                            top: 0;
+                            z-index: 1000;
+                            white-space: nowrap;
+                            min-width: 150px;
+                            font-weight: 600;
+                            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                            border-bottom: 2px solid #5a67d8;
+                        }
+                        .full-table td {
+                            padding: 8px;
+                            border-bottom: 1px solid #e2e8f0;
+                            word-break: break-word;
+                            white-space: normal;
+                            max-width: 200px;
+                            font-family: 'Courier New', monospace;
+                            font-size: 0.85rem;
+                            background: white;
+                            line-height: 1.4;
+                            vertical-align: top;
+                        }
+                        .full-table tr:nth-child(even) {
+                            background: #f1f5f9;
+                        }
+                        .full-table tr:hover {
+                            background: #e2e8f0;
+                        }
+                        
+                        /* Ensure proper sticky header behavior */
+                        .full-table thead::after {
+                            content: '';
+                            position: absolute;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            height: 2px;
+                            background: #5a67d8;
+                            z-index: 1001;
+                        }
+                        
+                        /* Add subtle background to header area for better visibility */
+                        .full-table thead {
+                            background: linear-gradient(135deg, #667eea 0%, #5a67d8 100%);
+                        }
+                        
+                        /* Ensure table body doesn't overlap headers */
+                        .full-table tbody {
+                            position: relative;
+                            z-index: 1;
+                        }
+                        .stats {
+                            background: #e6fffa;
+                            border: 1px solid #81e6d9;
+                            border-radius: 8px;
+                            padding: 15px;
+                            margin-bottom: 20px;
+                            text-align: center;
+                        }
+                        .close-btn {
+                            background: #e53e3e;
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            padding: 10px 20px;
+                            font-size: 1rem;
+                            cursor: pointer;
+                            margin-bottom: 20px;
+                        }
+                        .close-btn:hover {
+                            background: #c53030;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>🔍 Full Table View</h1>
+                        <p>Complete results from your SQL query</p>
+                    </div>
+                    
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <button class="close-btn" onclick="window.close()">❌ Close Window</button>
+                    </div>
+                    
+                    <div class="stats">
+                        <strong>📊 Results Summary:</strong> ${window.currentResults.results.length} rows × ${window.currentResults.columns.length} columns
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="full-table">
+                            <thead>
+                                <tr>
+                                    ${window.currentResults.columns.map(col => `<th>${escapeHtml(String(col))}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${window.currentResults.results.map(row => 
+                                    `<tr>${row.map(cell => 
+                                        `<td>${escapeHtml(cell === null || cell === undefined ? '<em>null</em>' : String(cell))}</td>`
+                                    ).join('')}</tr>`
+                                ).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            // Write the content to the new window
+            newWindow.document.write(htmlContent);
+            newWindow.document.close();
+            
+            showMessage('success', 'Full table opened in new tab!');
+        }
+
+        // Conversation management functions
+        function showSchema() {
+            if (!isInitialized) {
+                showMessage('error', 'Please initialize the database connection first.');
+                return;
+            }
+            
+            fetch('/api/sql/schema')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showMessage('error', data.error);
+                        return;
+                    }
+                    
+                    let schemaHtml = '<div class="schema-display">';
+                    schemaHtml += '<h3>📋 Database Schema</h3>';
+                    
+                    for (const [tableName, columns] of Object.entries(data.schema)) {
+                        schemaHtml += `<div class="table-schema">`;
+                        schemaHtml += `<h4>📊 Table: ${tableName}</h4>`;
+                        schemaHtml += '<div class="columns-list">';
+                        
+                        columns.forEach(col => {
+                            const pkMarker = col.key === 'PRI' ? ' 🔑' : '';
+                            const nullMarker = col.null === 'NO' ? ' ❌' : ' ✅';
+                            schemaHtml += `<div class="column-item">`;
+                            schemaHtml += `<span class="column-name">${col.name}</span>`;
+                            schemaHtml += `<span class="column-type">${col.type}${pkMarker}${nullMarker}</span>`;
+                            schemaHtml += '</div>';
+                        });
+                        
+                        schemaHtml += '</div></div>';
+                    }
+                    
+                    schemaHtml += '</div>';
+                    
+                    document.getElementById('messageContainer').innerHTML = schemaHtml;
+                    document.getElementById('resultsContainer').style.display = 'none';
+                })
+                .catch(error => {
+                    showMessage('error', 'Error fetching schema: ' + error.message);
+                });
+        }
+
+        function showHistory() {
+            if (!isInitialized) {
+                showMessage('error', 'Please initialize the database connection first.');
+                return;
+            }
+            
+            fetch('/api/sql/conversation/history')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showMessage('error', data.error);
+                        return;
+                    }
+                    
+                    if (data.count === 0) {
+                        showMessage('info', '📜 No conversation history yet. Start by running a query!');
+                        return;
+                    }
+                    
+                    let historyHtml = '<div class="history-display">';
+                    historyHtml += '<h3>📜 Conversation History</h3>';
+                    
+                    data.history.forEach((conv, index) => {
+                        historyHtml += `<div class="conversation-item">`;
+                        historyHtml += `<div class="conv-header">`;
+                        historyHtml += `<span class="conv-number">#${index + 1}</span>`;
+                        historyHtml += `<span class="conv-query">${conv.user_query}</span>`;
+                        historyHtml += '</div>';
+                        historyHtml += `<div class="conv-sql">SQL: ${conv.sql_query}</div>`;
+                        
+                        if (conv.result.success) {
+                            historyHtml += `<div class="conv-result success">✅ ${conv.result.row_count} rows returned</div>`;
+                        } else {
+                            historyHtml += `<div class="conv-result error">❌ Error: ${conv.result.error}</div>`;
+                        }
+                        historyHtml += '</div>';
+                    });
+                    
+                    historyHtml += '</div>';
+                    
+                    document.getElementById('messageContainer').innerHTML = historyHtml;
+                    document.getElementById('resultsContainer').style.display = 'none';
+                })
+                .catch(error => {
+                    showMessage('error', 'Error fetching history: ' + error.message);
+                });
+        }
+
+        function clearHistory() {
+            if (!isInitialized) {
+                showMessage('error', 'Please initialize the database connection first.');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to clear the conversation history?')) {
+                return;
+            }
+            
+            fetch('/api/sql/conversation/clear', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage('success', '🧹 Conversation history cleared!');
+                    updateConversationInfo(0);
+                    document.getElementById('resultsContainer').style.display = 'block';
+                    document.getElementById('messageContainer').innerHTML = '';
+                } else {
+                    showMessage('error', data.error || 'Failed to clear history');
+                }
+            })
+            .catch(error => {
+                showMessage('error', 'Error clearing history: ' + error.message);
+            });
+        }
+
+        function showHelp() {
+            const helpHtml = `
+                <div class="help-display">
+                    <h3>❓ Help - Available Commands</h3>
+                    <div class="help-section">
+                        <h4>💬 Query Commands:</h4>
+                        <ul>
+                            <li>Type any English query to get SQL results</li>
+                            <li>Examples: 'Show all patients', 'Count active users'</li>
+                            <li>Follow-up queries are supported: 'Now filter by age > 30'</li>
+                        </ul>
+                    </div>
+                    <div class="help-section">
+                        <h4>🔧 Utility Commands:</h4>
+                        <ul>
+                            <li><strong>📋 Schema</strong> - Display database structure</li>
+                            <li><strong>💬 Chat</strong> - Show chat-like conversation history</li>
+                            <li><strong>📜 History</strong> - Show detailed conversation history</li>
+                            <li><strong>🧹 Clear History</strong> - Clear conversation history</li>
+                            <li><strong>❓ Help</strong> - Show this help message</li>
+                        </ul>
+                    </div>
+                    <div class="help-section">
+                        <h4>💡 Follow-up Queries:</h4>
+                        <ul>
+                            <li>Ask follow-up questions based on previous results</li>
+                            <li>Example: 'Now filter by age > 30'</li>
+                            <li>The chatbot remembers your conversation context</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('messageContainer').innerHTML = helpHtml;
+            document.getElementById('resultsContainer').style.display = 'none';
+        }
+
+        function updateConversationInfo(count) {
+            const conversationInfo = document.getElementById('conversationInfo');
+            const conversationCount = document.getElementById('conversationCount');
+            const totalQueries = document.getElementById('totalQueries');
+            
+            if (count > 0) {
+                conversationInfo.style.display = 'block';
+                conversationCount.textContent = count;
+                totalQueries.textContent = count;
+            } else {
+                conversationInfo.style.display = 'none';
+            }
+        }
+
+        // Add chat-like conversation display
+        function showChatHistory() {
+            if (!isInitialized) {
+                showMessage('error', 'Please initialize the database connection first.');
+                return;
+            }
+            
+            fetch('/api/sql/conversation/history')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showMessage('error', data.error);
+                        return;
+                    }
+                    
+                    if (data.count === 0) {
+                        showMessage('info', '📜 No conversation history yet. Start by running a query!');
+                        return;
+                    }
+                    
+                    let chatHtml = '<div class="chat-history-display">';
+                    chatHtml += '<h3>💬 Chat History</h3>';
+                    chatHtml += '<div class="chat-messages">';
+                    
+                    data.history.forEach((conv, index) => {
+                        // User message
+                        chatHtml += `<div class="chat-message user-message">`;
+                        chatHtml += `<div class="message-header">`;
+                        chatHtml += `<span class="message-time">#${index + 1}</span>`;
+                        chatHtml += `<span class="message-sender">You</span>`;
+                        chatHtml += '</div>';
+                        chatHtml += `<div class="message-content">${conv.user_query}</div>`;
+                        chatHtml += '</div>';
+                        
+                        // Bot response
+                        chatHtml += `<div class="chat-message bot-message">`;
+                        chatHtml += `<div class="message-header">`;
+                        chatHtml += `<span class="message-sender">SQL Bot</span>`;
+                        chatHtml += '</div>';
+                        chatHtml += `<div class="message-content">`;
+                        chatHtml += `<div class="sql-response">SQL: ${conv.sql_query}</div>`;
+                        
+                        if (conv.result.success) {
+                            chatHtml += `<div class="result-response">✅ ${conv.result.row_count} rows returned</div>`;
+                        } else {
+                            chatHtml += `<div class="result-response error">❌ Error: ${conv.result.error}</div>`;
+                        }
+                        chatHtml += '</div>';
+                        chatHtml += '</div>';
+                    });
+                    
+                    chatHtml += '</div></div>';
+                    
+                    document.getElementById('messageContainer').innerHTML = chatHtml;
+                    document.getElementById('resultsContainer').style.display = 'none';
+                })
+                .catch(error => {
+                    showMessage('error', 'Error fetching chat history: ' + error.message);
+                });
+        }
+    </script>
+</body>
+</html>
+
