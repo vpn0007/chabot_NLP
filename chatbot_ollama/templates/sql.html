@@ -512,6 +512,7 @@
             padding: 20px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.2);
             display: flex;
+            overflow: scroll;
             flex-direction: column;
             height: 100%;
             min-height: 0;
@@ -585,6 +586,10 @@
             border-radius: 6px;
             padding: 10px;
             margin-bottom: 15px;
+            position: relative;
+        }
+
+        .sql-query-container {
             font-family: 'Courier New', monospace;
             font-size: 0.8rem;
             color: #2d3748;
@@ -592,6 +597,52 @@
             word-break: break-all;
             max-height: 80px;
             overflow-y: auto;
+            padding-right: 40px;
+        }
+
+        .copy-sql-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .copy-sql-btn:hover {
+            background: #5a67d8;
+            transform: scale(1.05);
+        }
+
+        .copy-sql-btn:active {
+            transform: scale(0.95);
+        }
+
+        .copy-feedback {
+            position: absolute;
+            top: -25px;
+            right: 0;
+            background: #22543d;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .copy-feedback.show {
+            opacity: 1;
         }
 
         .data-preview {
@@ -653,11 +704,11 @@
         }
 
         .results-table {
-            width: 100%;
             border-collapse: collapse;
             font-size: 0.85rem;
-            table-layout: fixed;
-            min-width: 2000px;
+            table-layout: auto;
+            min-width: 100%;
+            width: max-content;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             white-space: nowrap;
             /* Ensure proper sticky positioning */
@@ -684,8 +735,8 @@
             min-height: 0;
             max-height: 80vh;
             background: white;
-            overflow-x: auto;
-            overflow-y: auto;
+            overflow-x: auto !important;
+            overflow-y: auto !important;
             scrollbar-width: thin;
             scrollbar-color: #667eea #f1f1f1;
             /* Ensure proper positioning context for sticky elements */
@@ -693,8 +744,6 @@
             /* Additional properties for better sticky support */
             will-change: scroll-position;
             -webkit-overflow-scrolling: touch;
-            /* Force horizontal scroll for testing sticky behavior */
-            overflow-x: scroll !important;
         }
 
         /* Dynamic scrollbars - only show when needed */
@@ -722,14 +771,14 @@
         .results-table th {
             background: linear-gradient(135deg, #667eea 0%, #5a67d8 100%);
             color: white;
-            padding: 8px 6px;
+            padding: 8px 12px;
             text-align: left;
             position: sticky;
             top: 0;
             z-index: 10;
             white-space: nowrap;
-            min-width: 150px;
-            max-width: 200px;
+            min-width: 120px;
+            width: auto;
             font-weight: 600;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
@@ -748,14 +797,14 @@
         }
 
         .results-table td {
-            padding: 6px;
+            padding: 8px 12px;
             border-bottom: 1px solid #e2e8f0;
-            word-break: break-word;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            min-width: 150px;
-            max-width: 200px;
+            min-width: 120px;
+            width: auto;
+            max-width: 300px;
             font-family: 'Courier New', monospace;
             font-size: 0.8rem;
             background: white;
@@ -1101,7 +1150,11 @@
                 
                 <div class="sql-display" id="sqlDisplay" style="display: none;">
                     <strong>Generated SQL:</strong>
-                    <div id="sqlQuery"></div>
+                    <button class="copy-sql-btn" id="copySqlBtn" onclick="copySqlQuery()" title="Copy SQL Query">
+                        📋
+                    </button>
+                    <div class="copy-feedback" id="copyFeedback">Copied!</div>
+                    <div class="sql-query-container" id="sqlQuery"></div>
                 </div>
 
                 <div class="data-preview" id="dataPreview" style="display: none;">
@@ -1277,10 +1330,18 @@
             console.log('displayResults called with:', { columns, results, resultsLength: results?.length });
             console.log('resultsContainer:', resultsContainer);
             
+            if (!resultsContainer) {
+                console.error('Results container not found!');
+                return;
+            }
+            
             if (!columns || !results || results.length === 0) {
                 console.log('No results to display');
-                resultsContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #718096;"><h3>No results found</h3></div>';
-                document.getElementById('exportBtn').style.display = 'none';
+                if (resultsContainer) {
+                    resultsContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #718096;"><h3>No results found</h3></div>';
+                }
+                const exportBtn = document.getElementById('exportBtn');
+                if (exportBtn) exportBtn.style.display = 'none';
                 return;
             }
 
@@ -1288,7 +1349,7 @@
             window.currentResults = { columns, results };
 
             // Always show full table with proper sizing
-            const isWideTable = columns.length > 8;
+            const isWideTable = columns.length > 6;
             const isLongTable = results.length > 15;
             
             let tableClasses = 'results-table';
@@ -1296,7 +1357,7 @@
             if (isLongTable) tableClasses += ' long';
 
             console.log('Table classes:', tableClasses);
-            console.log('Is wide table:', isWideTable);
+            console.log('Is wide table:', isWideTable, 'Column count:', columns.length);
 
             let tableHTML = '<div class="results-table-wrapper">';
             tableHTML += `<table class="${tableClasses}">`;
@@ -1341,8 +1402,11 @@
             }, 100);
             
             // Show export and full table buttons
-            document.getElementById('exportBtn').style.display = 'block';
-            document.getElementById('fullTableBtn').style.display = 'block';
+            const exportBtn = document.getElementById('exportBtn');
+            const fullTableBtn = document.getElementById('fullTableBtn');
+            
+            if (exportBtn) exportBtn.style.display = 'block';
+            if (fullTableBtn) fullTableBtn.style.display = 'block';
             
             // Add click handlers for full data display
             addTableInteractivity();
@@ -1359,6 +1423,62 @@
             }
         }
 
+        function copySqlQuery() {
+            const sqlQueryElement = document.getElementById('sqlQuery');
+            const copyFeedback = document.getElementById('copyFeedback');
+            
+            if (!sqlQueryElement) return;
+            
+            const sqlText = sqlQueryElement.textContent.trim();
+            
+            if (navigator.clipboard && window.isSecureContext) {
+                // Modern clipboard API
+                navigator.clipboard.writeText(sqlText).then(() => {
+                    showCopyFeedback();
+                }).catch(err => {
+                    console.error('Failed to copy: ', err);
+                    fallbackCopyTextToClipboard(sqlText);
+                });
+            } else {
+                // Fallback for older browsers
+                fallbackCopyTextToClipboard(sqlText);
+            }
+        }
+
+        function fallbackCopyTextToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            
+            // Make the textarea out of viewport
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            textArea.style.top = "-999999px";
+            
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                showCopyFeedback();
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+                alert('Failed to copy SQL query. Please copy manually.');
+            }
+            
+            document.body.removeChild(textArea);
+        }
+
+        function showCopyFeedback() {
+            const copyFeedback = document.getElementById('copyFeedback');
+            if (copyFeedback) {
+                copyFeedback.classList.add('show');
+                setTimeout(() => {
+                    copyFeedback.classList.remove('show');
+                }, 1500);
+            }
+        }
+
         function optimizeTableScrollbars() {
             const wrapper = document.querySelector('.results-table-wrapper');
             const table = document.querySelector('.results-table');
@@ -1367,28 +1487,23 @@
             
             // Force table to have minimum width for horizontal scrolling
             const columnCount = table.querySelectorAll('th').length;
-            const minTableWidth = Math.max(800, columnCount * 150);
+            const cellMinWidth = 150;
+            const minTableWidth = Math.max(wrapper.clientWidth, columnCount * cellMinWidth);
             
-            // Set appropriate table width based on content
-            if (table.classList.contains('wide')) {
-                table.style.minWidth = '1200px';
-                table.style.width = '1200px';
-            } else if (table.classList.contains('narrow')) {
-                table.style.minWidth = '400px';
-                table.style.width = 'auto';
-            } else if (table.classList.contains('medium')) {
-                table.style.minWidth = '600px';
-                table.style.width = 'auto';
+            // For tables with many columns, ensure they expand beyond container
+            if (columnCount > 6) {
+                const calculatedWidth = columnCount * cellMinWidth;
+                table.style.minWidth = calculatedWidth + 'px';
+                table.style.width = 'max-content';
+                table.classList.add('wide');
             } else {
-                table.style.minWidth = minTableWidth + 'px';
-                table.style.width = minTableWidth + 'px';
+                table.style.minWidth = '100%';
+                table.style.width = '100%';
             }
             
-            // Force horizontal scroll if table is wider than container
-            if (table.scrollWidth > wrapper.clientWidth) {
-                wrapper.style.overflowX = 'scroll';
-                console.log('Forcing horizontal scroll - Table width:', table.scrollWidth, 'Wrapper width:', wrapper.clientWidth);
-            }
+            // Ensure wrapper allows horizontal scrolling
+            wrapper.style.overflowX = 'auto';
+            wrapper.style.overflowY = 'auto';
             
             // Log table dimensions for debugging
             console.log('Table optimization:', {
@@ -1506,6 +1621,11 @@
             const dataPreview = document.getElementById('dataPreview');
             const rawData = document.getElementById('rawData');
             
+            if (!dataPreview || !rawData) {
+                console.warn('Data preview elements not found');
+                return;
+            }
+            
             dataPreview.style.display = 'block';
             
             // Create raw data preview
@@ -1527,11 +1647,19 @@
         }
 
         function hideDataPreview() {
-            document.getElementById('dataPreview').style.display = 'none';
+            const dataPreview = document.getElementById('dataPreview');
+            if (dataPreview) {
+                dataPreview.style.display = 'none';
+            }
         }
 
         function toggleDataPreview() {
             const rawData = document.getElementById('rawData');
+            if (!rawData) {
+                console.warn('Raw data element not found');
+                return;
+            }
+            
             if (rawData.style.display === 'none') {
                 rawData.style.display = 'block';
             } else {
@@ -1546,9 +1674,15 @@
         }
 
         function clearResults() {
-            resultsContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #718096;"><h3>No results to display</h3></div>';
-            document.getElementById('exportBtn').style.display = 'none';
-            document.getElementById('fullTableBtn').style.display = 'none';
+            if (resultsContainer) {
+                resultsContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #718096;"><h3>No results to display</h3></div>';
+            }
+            
+            const exportBtn = document.getElementById('exportBtn');
+            const fullTableBtn = document.getElementById('fullTableBtn');
+            
+            if (exportBtn) exportBtn.style.display = 'none';
+            if (fullTableBtn) fullTableBtn.style.display = 'none';
         }
 
         function showSchemaInfo(tables) {
@@ -1637,6 +1771,7 @@
                             background: white;
                             border-radius: 10px;
                             padding: 20px;
+                            padding-top:0;
                             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                             overflow: auto;
                             max-height: 70vh;
