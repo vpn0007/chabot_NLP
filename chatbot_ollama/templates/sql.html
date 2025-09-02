@@ -331,7 +331,7 @@
             border: 1px solid #feb2b2;
         }
 
-        .manual-browser-btn {
+        /* .manual-browser-btn {
             background: rgba(255, 255, 255, 0.2);
             color: white;
             border: 2px solid rgba(255, 255, 255, 0.3);
@@ -347,7 +347,7 @@
             background: rgba(255, 255, 255, 0.3);
             border-color: rgba(255, 255, 255, 0.5);
             transform: translateY(-2px);
-        }
+        } */
 
         .browser-status {
             margin-top: 10px;
@@ -408,6 +408,56 @@
             color: #4a5568;
             margin-bottom: 15px;
             font-size: 1.1rem;
+        }
+
+
+
+        .tables-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .table-tag {
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            white-space: nowrap;
+        }
+
+        .table-tag:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.4);
+        }
+
+        .tables-loading {
+            text-align: center;
+            color: #718096;
+            font-style: italic;
+            padding: 20px;
+        }
+
+        .tables-error {
+            text-align: center;
+            color: #e53e3e;
+            font-size: 0.9rem;
+            padding: 10px;
+            background: #fed7d7;
+            border-radius: 6px;
+            margin-top: 10px;
         }
 
         .query-input {
@@ -1143,9 +1193,9 @@
         <div class="header">
             <h1>🗄️ SQL Query Chatbot</h1>
             <p>Ask questions in English and get SQL results instantly! Follow-up queries supported.</p>
-            <button class="manual-browser-btn" onclick="window.open('http://localhost:5004', '_blank')">
+            <!-- <button class="manual-browser-btn" onclick="window.open('http://localhost:5004', '_blank')">
                 🌐 Open in New Tab
-            </button> 
+            </button>  -->
         </div>
 
 
@@ -1171,6 +1221,14 @@
                 <div class="loading" id="loading">
                     <div class="spinner"></div>
                     Processing your query...
+                </div>
+
+                <!-- Tables Section within Query Panel -->
+                <div class="tables-section" id="tablesSection" style="display: none; margin-top: 20px;">
+                    <h3 style="color: #4a5568; margin-bottom: 10px; font-size: 1rem;">📋 Database Tables</h3>
+                    <div class="tables-list" id="tablesList">
+                        <div class="tables-loading">Connect to database to see tables...</div>
+                    </div>
                 </div>
             </div>
 
@@ -1282,8 +1340,9 @@
                     
                     showMessage('success', 'Database connection established successfully!');
                     
-                    // Show schema information
-                    showSchemaInfo(data.tables);
+                    // Show tables in the tables panel
+                    displayTables(data.tables);
+                    
                 } else {
                     throw new Error(data.error || 'Failed to initialize database connection');
                 }
@@ -1291,6 +1350,12 @@
                 showMessage('error', `Error: ${error.message}`);
                 statusIndicator.textContent = 'Connection failed';
                 statusIndicator.style.color = '#e53e3e';
+                
+                // Hide tables section on error
+                const tablesSection = document.getElementById('tablesSection');
+                if (tablesSection) {
+                    tablesSection.style.display = 'none';
+                }
             } finally {
                 showLoading(false);
                 initBtn.disabled = false;
@@ -1948,21 +2013,67 @@
             if (fullTableBtn) fullTableBtn.style.display = 'none';
         }
 
-        function showSchemaInfo(tables) {
-            const schemaDiv = document.createElement('div');
-            schemaDiv.className = 'schema-info';
-            schemaDiv.innerHTML = `
-                <h3>📋 Database Schema</h3>
-                <p>Available tables: ${tables.join(', ')}</p>
-            `;
-            messageContainer.appendChild(schemaDiv);
+
+        function displayTables(tables) {
+            const tablesSection = document.getElementById('tablesSection');
+            const tablesList = document.getElementById('tablesList');
             
-            // Remove after 10 seconds
-            setTimeout(() => {
-                if (schemaDiv.parentNode) {
-                    schemaDiv.remove();
-                }
-            }, 10000);
+            if (!tables || tables.length === 0) {
+                tablesList.innerHTML = '<div class="tables-error">No tables found in database</div>';
+                return;
+            }
+            
+            // Show the tables section
+            tablesSection.style.display = 'block';
+            
+            // Clear loading message and create table tags
+            tablesList.innerHTML = '';
+            
+            tables.forEach(tableName => {
+                const tableTag = document.createElement('button');
+                tableTag.className = 'table-tag';
+                tableTag.textContent = tableName;
+                tableTag.title = `Click to insert "${tableName}" into query`;
+                
+                // Add click handler to insert table name into query input
+                tableTag.addEventListener('click', () => {
+                    insertTableIntoQuery(tableName);
+                });
+                
+                tablesList.appendChild(tableTag);
+            });
+        }
+
+        function insertTableIntoQuery(tableName) {
+            const queryInput = document.getElementById('queryInput');
+            if (!queryInput || queryInput.disabled) {
+                showMessage('info', 'Connect to database first to use table suggestions');
+                return;
+            }
+            
+            const currentValue = queryInput.value;
+            const cursorPosition = queryInput.selectionStart;
+            
+            // Insert table name at cursor position or at the end
+            const beforeCursor = currentValue.substring(0, cursorPosition);
+            const afterCursor = currentValue.substring(cursorPosition);
+            
+            // Add space before table name if needed
+            const needsSpaceBefore = beforeCursor.length > 0 && !beforeCursor.endsWith(' ');
+            const needsSpaceAfter = afterCursor.length > 0 && !afterCursor.startsWith(' ');
+            
+            const tableNameToInsert = (needsSpaceBefore ? ' ' : '') + tableName + (needsSpaceAfter ? ' ' : '');
+            
+            queryInput.value = beforeCursor + tableNameToInsert + afterCursor;
+            
+            // Set cursor position after the inserted table name
+            const newCursorPosition = cursorPosition + tableNameToInsert.length;
+            queryInput.setSelectionRange(newCursorPosition, newCursorPosition);
+            
+            // Focus on the input
+            queryInput.focus();
+            
+            showMessage('success', `Inserted "${tableName}" into query`);
         }
 
         function showLoading(show) {
@@ -1986,7 +2097,7 @@
                 if (messageDiv.parentNode) {
                     messageDiv.remove();
                 }
-            }, 8000);
+            }, 80000);
         }
 
         // Conversation management functions
