@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, session
-import snowflake.connector
+import mysql.connector
 from typing import List, Dict, Any, Optional
 from langchain_ollama import OllamaLLM
 import json
@@ -20,12 +20,12 @@ sql_chatbot = None
 class SQLQueryChatbot:
     def __init__(self, db_config: Dict[str, Any] = None):
         """
-        Initialize the SQL Query Chatbot for Snowflake
+        Initialize the SQL Query Chatbot for MySQL
         
         Args:
-            db_config: Snowflake connection configuration dictionary
+            db_config: MySQL connection configuration dictionary
         """
-        self.db_type = "snowflake"
+        self.db_type = "mysql"
         self.db_config = db_config or {}
         self.llm = OllamaLLM(model="llama3.1", temperature=0.1)
         self.db_schema = None
@@ -38,23 +38,23 @@ class SQLQueryChatbot:
             self._initialize_database()
     
     def _get_connection(self):
-        """Get Snowflake database connection"""
+        """Get MySQL database connection"""
         try:
-            print(f"🌨️  Attempting Snowflake connection to account: {self.db_config.get('account', 'unknown')}")
-            print(f"🌨️  User: {self.db_config.get('user', 'unknown')}, Warehouse: {self.db_config.get('warehouse', 'unknown')}")
-            print(f"🌨️  Database: {self.db_config.get('database', 'unknown')}, Schema: {self.db_config.get('schema', 'unknown')}")
-            return snowflake.connector.connect(**self.db_config)
+            print(f"🐬 Attempting MySQL connection to host: {self.db_config.get('host', 'unknown')}")
+            print(f"🐬 User: {self.db_config.get('user', 'unknown')}, Port: {self.db_config.get('port', 'unknown')}")
+            print(f"🐬 Database: {self.db_config.get('database', 'unknown')}")
+            return mysql.connector.connect(**self.db_config)
         except Exception as e:
-            print(f"❌ Error connecting to Snowflake database: {str(e)}")
-            print("🌨️  Snowflake connection troubleshooting:")
-            print("   - Check if account identifier is correct")
+            print(f"❌ Error connecting to MySQL database: {str(e)}")
+            print("🐬 MySQL connection troubleshooting:")
+            print("   - Check if MySQL server is running")
             print("   - Verify username and password")
-            print("   - Ensure warehouse is started and accessible")
-            print("   - Check network connectivity (port 443)")
+            print("   - Ensure database exists")
+            print("   - Check network connectivity (port 3306)")
             return None
     
     def _initialize_database(self):
-        """Initialize Snowflake database connection and extract schema information"""
+        """Initialize MySQL database connection and extract schema information"""
         try:
             self.connection = self._get_connection()
             if not self.connection:
@@ -62,16 +62,16 @@ class SQLQueryChatbot:
             
             cursor = self.connection.cursor()
             
-            # Get all table names for Snowflake
+            # Get all table names for MySQL
             cursor.execute("SHOW TABLES")
             tables = cursor.fetchall()
             
             self.db_schema = {}
             for table in tables:
-                table_name = table[1]  # Snowflake returns [database, table, schema, kind, ...]
+                table_name = table[0]  # MySQL returns just the table name
                 
                 # Get table structure
-                cursor.execute(f"DESCRIBE TABLE {table_name}")
+                cursor.execute(f"DESCRIBE {table_name}")
                 columns = cursor.fetchall()
                 
                 table_info = []
@@ -112,8 +112,8 @@ class SQLQueryChatbot:
             for table_name, columns in self.db_schema.items():
                 schema_info += f"\nTable: {table_name}\n"
                 for col in columns:
-                    # Snowflake columns have different structure
-                    null_marker = " NOT NULL" if col['null'] == 'N' else ""
+                    # MySQL columns have different structure
+                    null_marker = " NOT NULL" if col['null'] == 'NO' else ""
                     schema_info += f"  - {col['name']}: {col['type']}{null_marker}\n"
                 
                 # Add sample data if available
@@ -122,14 +122,15 @@ class SQLQueryChatbot:
                     if sample_data:
                         schema_info += f"  Sample data: {sample_data[:2]}\n"
         
-        return f"""You are an expert SQL query generator for SNOWFLAKE databases. Your task is to convert English language queries into accurate, executable Snowflake SQL queries.
+        return f"""You are an expert SQL query generator for MYSQL databases. Your task is to convert English language queries into accurate, executable MySQL SQL queries.
 
 {schema_info}
 
-CRITICAL RULE - NO BACKTICKS:
-- NEVER use backticks (`) around table or column names in Snowflake
-- Write table names directly: "SELECT * FROM DIMDISEASE;" NOT "SELECT * FROM \`DIMDISEASE\`;"
-- Write column names directly: "SELECT name, age FROM users;" NOT "SELECT \`name\`, \`age\` FROM users;"
+CRITICAL RULE - BACKTICKS FOR RESERVED WORDS:
+- Use backticks (`) around table or column names ONLY if they are MySQL reserved words
+- Generally write table names directly: "SELECT * FROM users;"
+- Use backticks for reserved words: "SELECT `order`, `group` FROM `table`;"
+- Most common names don't need backticks: "SELECT name, age FROM customers;"
 
 CRITICAL RULE - TABLE ALIAS CONSISTENCY:
 - ALWAYS use consistent table aliases between FROM clause and SELECT clause
@@ -165,7 +166,7 @@ CORRECT JOIN PATTERNS:
 
 IMPORTANT RULES:
 1. Generate ONLY the SQL query, no explanations or additional text
-2. Use Snowflake SQL syntax (NOT MySQL, SQL Server, or Oracle syntax)
+2. Use MySQL SQL syntax (NOT Snowflake, SQL Server, or Oracle syntax)
 3. Use LIMIT for limiting results (NOT TOP)
 4. Include appropriate JOINs when multiple tables are referenced
 5. Use table aliases for clarity when joining multiple tables
@@ -180,42 +181,42 @@ IMPORTANT RULES:
 14. For queries like "show me all data" or "get every row", use SELECT * FROM table; (no LIMIT)
 15. For queries like "show me 10 rows" or "get first 5", use SELECT * FROM table LIMIT 10;
 
-SNOWFLAKE-SPECIFIC RULES:
+MYSQL-SPECIFIC RULES:
 - Use LIMIT instead of TOP: "SELECT * FROM table LIMIT 10;" (NOT "SELECT TOP 10 * FROM table;")
-- NEVER use backticks (`) around table or column names in Snowflake
-- Use proper Snowflake schema notation: "SCHEMA.TABLE" or "DATABASE.SCHEMA.TABLE"
-- Use Snowflake-specific data types: VARCHAR, NUMBER, TIMESTAMP_NTZ, etc.
-- Use double quotes (") only when absolutely necessary for case-sensitive identifiers
+- Use backticks (`) only for reserved words: "SELECT `order` FROM `table`;"
+- Use proper MySQL schema notation: "database.table" or just "table"
+- Use MySQL-specific data types: VARCHAR, INT, DATETIME, TEXT, etc.
+- Use double quotes (") for string literals, single quotes (') also work
 
-SNOWFLAKE DATE FUNCTIONS (USE THESE, NOT PostgreSQL functions):
-- For age calculation: DATEDIFF('YEAR', birth_date, CURRENT_DATE()) AS age
+MYSQL DATE FUNCTIONS (USE THESE, NOT Snowflake or PostgreSQL functions):
+- For age calculation: TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) AS age
 - For date parts: YEAR(date_column), MONTH(date_column), DAY(date_column)
-- For date arithmetic: DATEADD('YEAR', 1, date_column), DATEADD('MONTH', -3, date_column)
-- For date differences: DATEDIFF('DAY', start_date, end_date), DATEDIFF('MONTH', start_date, end_date)
-- For current date/time: CURRENT_DATE(), CURRENT_TIMESTAMP(), CURRENT_TIME()
-- For date formatting: TO_CHAR(date_column, 'YYYY-MM-DD'), TO_DATE('2024-01-01', 'YYYY-MM-DD')
-- For date truncation: DATE_TRUNC('MONTH', date_column), DATE_TRUNC('YEAR', date_column)
+- For date arithmetic: DATE_ADD(date_column, INTERVAL 1 YEAR), DATE_SUB(date_column, INTERVAL 3 MONTH)
+- For date differences: DATEDIFF(end_date, start_date) AS days, TIMESTAMPDIFF(MONTH, start_date, end_date) AS months
+- For current date/time: CURDATE(), NOW(), CURTIME()
+- For date formatting: DATE_FORMAT(date_column, '%Y-%m-%d'), STR_TO_DATE('2024-01-01', '%Y-%m-%d')
+- For date extraction: EXTRACT(MONTH FROM date_column), EXTRACT(YEAR FROM date_column)
 
-POSTGRESQL FUNCTIONS TO AVOID (NOT AVAILABLE IN SNOWFLAKE):
-- ❌ AGE() function - use DATEDIFF('YEAR', birth_date, CURRENT_DATE()) instead
-- ❌ NOW() function - use CURRENT_TIMESTAMP() instead
-- ❌ INTERVAL arithmetic - use DATEADD() and DATEDIFF() instead
-- ❌ EXTRACT() function - use YEAR(), MONTH(), DAY() instead
+SNOWFLAKE FUNCTIONS TO AVOID (NOT AVAILABLE IN MYSQL):
+- ❌ CURRENT_DATE() function - use CURDATE() instead
+- ❌ DATEADD() function - use DATE_ADD() instead
+- ❌ DATE_TRUNC() function - use DATE_FORMAT() with appropriate format instead
+- ❌ TO_CHAR() function - use DATE_FORMAT() instead
 
-CORRECT EXAMPLES (NO BACKTICKS):
+CORRECT EXAMPLES:
 - "Show me all employees" → "SELECT * FROM employees;" (no LIMIT)
 - "Show first 10 rows" → "SELECT * FROM table LIMIT 10;"
 - "Show me 5 rows" → "SELECT * FROM table LIMIT 5;"
 - "Count users in each department" → "SELECT department, COUNT(*) as user_count FROM users GROUP BY department;"
 - "Find customers who made purchases in 2024" → "SELECT * FROM customers WHERE customer_id IN (SELECT DISTINCT customer_id FROM orders WHERE YEAR(order_date) = 2024);"
-- "Get all data from DIMDISEASE table" → "SELECT * FROM DIMDISEASE;" (no LIMIT)
+- "Get all data from disease table" → "SELECT * FROM disease;" (no LIMIT)
 
-SNOWFLAKE-SPECIFIC EXAMPLES:
-- "Calculate age from birth date" → "SELECT DATEDIFF('YEAR', birth_date, CURRENT_DATE()) AS age FROM users;"
-- "Get patients with age calculation" → "SELECT patient_id, DATEDIFF('YEAR', birth_date, CURRENT_DATE()) AS age FROM patients;"
-- "Date arithmetic - add 1 year" → "SELECT DATEADD('YEAR', 1, start_date) AS next_year FROM events;"
-- "Date difference in months" → "SELECT DATEDIFF('MONTH', start_date, end_date) AS months_between FROM projects;"
-- "Format date as string" → "SELECT TO_CHAR(created_date, 'YYYY-MM-DD') AS formatted_date FROM orders;"
+MYSQL-SPECIFIC EXAMPLES:
+- "Calculate age from birth date" → "SELECT TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) AS age FROM users;"
+- "Get patients with age calculation" → "SELECT patient_id, TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) AS age FROM patients;"
+- "Date arithmetic - add 1 year" → "SELECT DATE_ADD(start_date, INTERVAL 1 YEAR) AS next_year FROM events;"
+- "Date difference in months" → "SELECT TIMESTAMPDIFF(MONTH, start_date, end_date) AS months_between FROM projects;"
+- "Format date as string" → "SELECT DATE_FORMAT(created_date, '%Y-%m-%d') AS formatted_date FROM orders;"
 
 CORRECT JOIN EXAMPLES:
 - "Patient ID and chronic disease from patient chronic disease and dimdisease tables" →
@@ -244,17 +245,17 @@ BRIDGE TABLE JOIN EXAMPLES:
    LEFT JOIN PATIENT_ALLERGY PA ON P.PATIENT_ID = PA.PATIENT_ID
    LEFT JOIN DIMDISEASE D ON PA.ALLERGYID = D.DISEASE_ID;"
 
-INCORRECT EXAMPLES (WITH BACKTICKS - DON'T DO THIS):
-- ❌ "SELECT * FROM \`DIMDISEASE\`;"
-- ❌ "SELECT \`name\`, \`age\` FROM \`users\`;"
-- ❌ "SELECT * FROM \`table\` LIMIT 10;"
+INCORRECT EXAMPLES (UNNECESSARY BACKTICKS - DON'T DO THIS):
+- ❌ "SELECT * FROM \`users\`;" (unless 'users' is a reserved word)
+- ❌ "SELECT \`name\`, \`age\` FROM \`customers\`;" (unless these are reserved words)
+- ❌ "SELECT * FROM \`table\` LIMIT 10;" (only use backticks if needed)
 
-INCORRECT SNOWFLAKE EXAMPLES (DON'T DO THIS):
-- ❌ "SELECT AGE(birth_date) AS age" - use DATEDIFF('YEAR', birth_date, CURRENT_DATE()) instead
-- ❌ "SELECT NOW()" - use CURRENT_TIMESTAMP() instead
-- ❌ "SELECT birth_date + INTERVAL '1 year'" - use DATEADD('YEAR', 1, birth_date) instead
-- ❌ "SELECT EXTRACT(YEAR FROM date_column)" - use YEAR(date_column) instead
-- ❌ "SELECT * FROM table LIMIT 10 OFFSET 20" - use OFFSET only when necessary
+INCORRECT MYSQL EXAMPLES (DON'T DO THIS):
+- ❌ "SELECT DATEDIFF('YEAR', birth_date, CURRENT_DATE()) AS age" - use TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) instead
+- ❌ "SELECT CURRENT_TIMESTAMP()" - use NOW() instead (though both work)
+- ❌ "SELECT DATEADD('YEAR', 1, birth_date)" - use DATE_ADD(birth_date, INTERVAL 1 YEAR) instead
+- ❌ "SELECT TO_CHAR(date_column, 'YYYY-MM-DD')" - use DATE_FORMAT(date_column, '%Y-%m-%d') instead
+- ❌ "SELECT * FROM table LIMIT 10 OFFSET 20" - use "SELECT * FROM table LIMIT 20, 10" for MySQL < 8.0
 
 INCORRECT JOIN EXAMPLES (DON'T DO THIS):
 - ❌ "SELECT PD.CHRONICDISEASEID" when PD alias is not defined
@@ -311,8 +312,8 @@ SQL Query:"""
             
             sql_query = sql_query.strip()
             
-            # CRITICAL: Remove all backticks from table and column names for Snowflake
-            sql_query = sql_query.replace('`', '')
+            # Note: Keep backticks for MySQL reserved words if needed
+            # sql_query = sql_query.replace('`', '')  # Commented out for MySQL compatibility
             
             print(f"🔍 DEBUG: Cleaned SQL query: {sql_query}")
             
@@ -341,17 +342,17 @@ SQL Query:"""
             if not self.connection:
                 return {"valid": False, "error": "No database connection available"}
             
-            # Skip validation for certain Snowflake commands that don't work with EXPLAIN
-            skip_validation_commands = ['SHOW TABLES', 'SHOW DATABASES', 'DESCRIBE', 'SHOW CREATE TABLE']
+            # Skip validation for certain MySQL commands that don't work with EXPLAIN
+            skip_validation_commands = ['SHOW TABLES', 'SHOW DATABASES', 'DESCRIBE', 'SHOW CREATE TABLE', 'SHOW COLUMNS']
             if any(cmd in sql_query.upper() for cmd in skip_validation_commands):
                 return {
                     "valid": True,
-                    "message": "Snowflake command (skipped validation)"
+                    "message": "MySQL command (skipped validation)"
                 }
             
             cursor = self.connection.cursor()
             
-            # For Snowflake, we can use EXPLAIN to validate
+            # For MySQL, we can use EXPLAIN to validate
             cursor.execute(f"EXPLAIN {sql_query}")
             plan = cursor.fetchall()
             
@@ -480,15 +481,15 @@ def init_sql_chatbot():
     global sql_chatbot
     
     try:
-        # Import Snowflake configuration
-        from config import SNOWFLAKE_CONFIG
+        # Import MySQL configuration
+        from config import MYSQL_CONFIG
         
-        # Use Snowflake configuration
-        db_type = "snowflake"
-        db_config = SNOWFLAKE_CONFIG
+        # Use MySQL configuration
+        db_type = "mysql"
+        db_config = MYSQL_CONFIG
         
-        print(f"🔍 DEBUG: Using Snowflake database configuration")
-        print("🌨️  Using Snowflake database configuration")
+        print(f"🔍 DEBUG: Using MySQL database configuration")
+        print("🐬 Using MySQL database configuration")
             
     except ImportError:
         return jsonify({'error': 'config.py not found. Please create it with your database credentials.'}), 500
