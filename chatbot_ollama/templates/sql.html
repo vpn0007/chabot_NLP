@@ -464,20 +464,7 @@
             font-size: 0.85rem;
         }
 
-        .row-limit-select {
-            width: 100%;
-            padding: 8px 12px;
-            border: 2px solid #e2e8f0;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            background: white;
-            margin-bottom: 8px;
-        }
 
-        .row-limit-select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
 
         .query-options small {
             color: #718096;
@@ -548,27 +535,6 @@
         .export-btn:hover {
             background: #38a169;
         }
-
-        .full-table-btn {
-            background: #3182ce;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 6px 10px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
-
-        .full-table-btn:hover {
-            background: #2c5aa0;
-        }
-
-        .full-table-btn:disabled {
-            background: #a0aec0;
-            cursor: not-allowed;
-        }
-
 
 
         .results-header h2 {
@@ -1054,6 +1020,98 @@
             font-size: 0.8rem;
         }
 
+        /* Pagination styles */
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 10px;
+        }
+
+        .pagination-info {
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .pagination-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: #5a67d8;
+        }
+
+        .pagination-btn:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        .pagination-pages {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .pagination-page {
+            background: #f7fafc;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .pagination-page:hover {
+            background: #e2e8f0;
+        }
+
+        .pagination-page.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .pagination-ellipsis {
+            padding: 6px 4px;
+            color: #a0aec0;
+            font-size: 0.8rem;
+        }
+
+        .pagination-loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #667eea;
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+
+        .pagination-loading .mini-spinner {
+            width: 12px;
+            height: 12px;
+            border: 2px solid #e2e8f0;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
@@ -1066,6 +1124,17 @@
             .results-panel {
                 height: 500px;
             }
+
+            .pagination-container {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+
+            .pagination-pages {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
         }
     </style>
 </head>
@@ -1076,12 +1145,7 @@
             <p>Ask questions in English and get SQL results instantly! Follow-up queries supported.</p>
             <button class="manual-browser-btn" onclick="window.open('http://localhost:5004', '_blank')">
                 🌐 Open in New Tab
-            </button>
-            <div class="browser-status" id="browserStatus" style="display: none;">
-                <small>🔄 Attempting to open browser automatically...</small>
-            </div>
-            
-
+            </button> 
         </div>
 
 
@@ -1100,17 +1164,7 @@
                     disabled
                 ></textarea>
                 
-                <div class="query-options">
-                    <label for="rowLimit">📊 Row Limit:</label>
-                    <select id="rowLimit" class="row-limit-select">
-                        <option value="none">No Limit</option>
-                        <option value="10">10 Rows</option>
-                        <option value="25">25 Rows</option>
-                        <option value="50">50 Rows</option>
-                        <option value="100">100 Rows</option>
-                    </select>
-                    <small>💡 Get all rows or limit results</small>
-                </div>
+
                 
                 <button class="query-btn" id="queryBtn" type="button" disabled>🔍 Generate & Execute SQL</button>
                 
@@ -1125,9 +1179,6 @@
                 <div class="results-header">
                     <h2>📊 Results</h2>
                     <div class="header-actions">
-                        <button class="full-table-btn" id="fullTableBtn" style="display: none;" onclick="openFullTable()" title="Full Table View">
-                            🔍 Full View
-                        </button>
                         <button class="export-btn" id="exportBtn" style="display: none;" onclick="exportResults()">
                             📥 Export
                         </button>
@@ -1159,6 +1210,17 @@
 
     <script>
         let isInitialized = false;
+
+        // Pagination variables
+        let currentPage = 1;
+        let itemsPerPage = 20; // Show 20 rows per page for better performance
+        let batchSize = 100; // Fetch 100 records per server request
+        let totalResults = [];
+        let currentColumns = [];
+        let totalRecordCount = 0;
+        let isLoadingMore = false;
+        let currentQuery = '';
+        let allDataLoaded = false;
 
         // DOM elements
         const initBtn = document.getElementById('initBtn');
@@ -1261,9 +1323,9 @@
             showLoading(true);
             queryBtn.disabled = true;
 
-            // Get row limit from the select element
-            const rowLimitSelect = document.getElementById('rowLimit');
-            const rowLimit = rowLimitSelect.value === 'none' ? null : parseInt(rowLimitSelect.value);
+            // First request - get initial batch without limit to get total count
+            const offset = 0;
+            const limit = batchSize; // Get first 100 records
 
             try {
                 const response = await fetch('/api/sql/query', {
@@ -1273,7 +1335,9 @@
                     },
                     body: JSON.stringify({ 
                         query: query,
-                        row_limit: rowLimit
+                        offset: offset,
+                        limit: limit,
+                        get_total_count: true
                     })
                 });
 
@@ -1291,14 +1355,24 @@
                     
                     if (data.success) {
                         console.log('Query successful, calling displayResults with:', data);
-                        showMessage('success', `Query executed successfully! Found ${data.row_count} rows.`);
-                        displayResults(data.columns, data.results);
-                        showDataPreview(data.columns, data.results);
+                        
+                        // Store query for future pagination requests
+                        currentQuery = query;
+                        
+                        // Reset pagination state
+                        currentPage = 1;
+                        totalResults = data.results;
+                        currentColumns = data.columns;
+                        totalRecordCount = data.total_count || data.row_count;
+                        allDataLoaded = data.results.length < batchSize; // If we got less than batch size, we have all data
+                        
+                        const totalMessage = data.total_count ? ` Total: ${data.total_count} records.` : '';
+                        showMessage('success', `Query executed successfully! Loaded ${data.row_count} rows.${totalMessage}`);
+                        displayResults(data.columns, data.results, data.total_count);
                     } else {
                         console.log('Query failed:', data);
                         showMessage('error', `Execution error: ${data.error}`);
                         clearResults();
-                        hideDataPreview();
                     }
                 } else {
                     throw new Error(data.error || 'Failed to process query');
@@ -1312,7 +1386,7 @@
             }
         }
 
-        function displayResults(columns, results) {
+        function displayResults(columns, results, totalCount = null) {
             console.log('displayResults called with:', { columns, results, resultsLength: results?.length });
             console.log('resultsContainer:', resultsContainer);
             
@@ -1331,40 +1405,57 @@
                 return;
             }
 
-            // Store results globally for export
+            // Store results globally for pagination and export
+            totalResults = results;
+            currentColumns = columns;
+            currentPage = 1; // Reset to first page
             window.currentResults = { columns, results };
 
-            // Always show full table with proper sizing
-            const isWideTable = columns.length > 6;
-            const isLongTable = results.length > 15;
+            // Show export and full table buttons
+            const exportBtn = document.getElementById('exportBtn');
+            const fullTableBtn = document.getElementById('fullTableBtn');
             
+            if (exportBtn) exportBtn.style.display = 'block';
+            if (fullTableBtn) fullTableBtn.style.display = 'block';
+
+            // Display paginated results
+            displayPaginatedResults();
+        }
+
+        function displayPaginatedResults() {
+            if (!resultsContainer || !totalResults.length) return;
+
+            // Calculate pagination based on total record count (not just loaded data)
+            const totalPages = Math.ceil(totalRecordCount / itemsPerPage);
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, totalResults.length);
+            const currentPageResults = totalResults.slice(startIndex, endIndex);
+
+            // Table sizing
+            const isWideTable = currentColumns.length > 6;
             let tableClasses = 'results-table';
             if (isWideTable) tableClasses += ' wide';
-            if (isLongTable) tableClasses += ' long';
 
-            console.log('Table classes:', tableClasses);
-            console.log('Is wide table:', isWideTable, 'Column count:', columns.length);
-
+            // Build table HTML
             let tableHTML = '<div class="results-table-wrapper">';
             tableHTML += `<table class="${tableClasses}">`;
             
             // Header
             tableHTML += '<thead><tr>';
-            columns.forEach(col => {
+            currentColumns.forEach(col => {
                 tableHTML += `<th>${escapeHtml(String(col))}</th>`;
             });
             tableHTML += '</tr></thead>';
             
-            // Body
+            // Body (paginated results)
             tableHTML += '<tbody>';
-            results.forEach((row, rowIndex) => {
+            currentPageResults.forEach((row, rowIndex) => {
                 tableHTML += '<tr>';
                 row.forEach((cell, colIndex) => {
                     if (cell === null || cell === undefined) {
                         tableHTML += '<td><em>null</em></td>';
                     } else {
                         const cellStr = String(cell);
-                        // Show full data without truncation
                         const fullValue = escapeHtml(cellStr);
                         tableHTML += `<td data-full-value="${fullValue}"><div class="cell-content">${fullValue}</div></td>`;
                     }
@@ -1373,28 +1464,49 @@
             });
             tableHTML += '</tbody></table>';
             tableHTML += '</div>';
+
+            // Add pagination controls
+            if (totalPages > 1) {
+                tableHTML += '<div class="pagination-container">';
+                tableHTML += `<div class="pagination-info">Showing ${startIndex + 1}-${Math.min(startIndex + itemsPerPage, totalRecordCount)} of ${totalRecordCount} results</div>`;
+                tableHTML += '<div class="pagination-controls">';
+                
+                // Previous button
+                tableHTML += `<button class="pagination-btn" onclick="goToPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>Previous</button>`;
+                
+                // Loading indicator for data fetching
+                if (isLoadingMore) {
+                    tableHTML += '<div class="pagination-loading"><div class="mini-spinner"></div>Loading more data...</div>';
+                }
+                
+                // Page numbers
+                tableHTML += '<div class="pagination-pages">';
+                const pages = generatePageNumbers(currentPage, totalPages);
+                pages.forEach(page => {
+                    if (page === '...') {
+                        tableHTML += '<span class="pagination-ellipsis">...</span>';
+                    } else {
+                        const isActive = page === currentPage ? 'active' : '';
+                        tableHTML += `<button class="pagination-page ${isActive}" onclick="goToPage(${page})">${page}</button>`;
+                    }
+                });
+                tableHTML += '</div>';
+                
+                // Next button
+                tableHTML += `<button class="pagination-btn" onclick="goToPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>Next</button>`;
+                
+                tableHTML += '</div>';
+                tableHTML += '</div>';
+            } else {
+                // Show info even without pagination
+                tableHTML += '<div class="pagination-container">';
+                tableHTML += `<div class="pagination-info">Showing all ${totalRecordCount} results</div>`;
+                tableHTML += '</div>';
+            }
             
             resultsContainer.innerHTML = tableHTML;
             
-            // Debug: Check if sticky positioning is applied
-            setTimeout(() => {
-                const firstHeader = document.querySelector('.results-table th:first-child');
-                const firstDataCell = document.querySelector('.results-table td:first-child');
-                console.log('First header sticky position:', firstHeader?.style.position);
-                console.log('First header sticky left:', firstHeader?.style.left);
-                console.log('First data cell sticky position:', firstDataCell?.style.position);
-                console.log('First data cell sticky left:', firstDataCell?.style.left);
-                console.log('Table wrapper overflow-x:', document.querySelector('.results-table-wrapper')?.style.overflowX);
-            }, 100);
-            
-            // Show export and full table buttons
-            const exportBtn = document.getElementById('exportBtn');
-            const fullTableBtn = document.getElementById('fullTableBtn');
-            
-            if (exportBtn) exportBtn.style.display = 'block';
-            if (fullTableBtn) fullTableBtn.style.display = 'block';
-            
-            // Add click handlers for full data display
+            // Add table interactivity
             addTableInteractivity();
             
             // Optimize scrollbars after table is rendered
@@ -1406,6 +1518,139 @@
             if (!window.resizeHandlerAdded) {
                 window.addEventListener('resize', optimizeTableScrollbars);
                 window.resizeHandlerAdded = true;
+            }
+        }
+
+        function generatePageNumbers(currentPage, totalPages) {
+            const pages = [];
+            const maxVisible = 7; // Maximum number of page buttons to show
+            
+            if (totalPages <= maxVisible) {
+                for (let i = 1; i <= totalPages; i++) {
+                    pages.push(i);
+                }
+            } else {
+                // Always show first page
+                pages.push(1);
+                
+                if (currentPage > 4) {
+                    pages.push('...');
+                }
+                
+                // Show pages around current page
+                const start = Math.max(2, currentPage - 1);
+                const end = Math.min(totalPages - 1, currentPage + 1);
+                
+                for (let i = start; i <= end; i++) {
+                    if (!pages.includes(i)) {
+                        pages.push(i);
+                    }
+                }
+                
+                if (currentPage < totalPages - 3) {
+                    pages.push('...');
+                }
+                
+                // Always show last page
+                if (!pages.includes(totalPages)) {
+                    pages.push(totalPages);
+                }
+            }
+            
+            return pages;
+        }
+
+        async function goToPage(page) {
+            const totalPages = Math.ceil(totalRecordCount / itemsPerPage);
+            
+            if (page < 1 || page > totalPages || page === currentPage) {
+                return;
+            }
+            
+            // Calculate if we need more data for this page
+            const requiredDataCount = page * itemsPerPage;
+            
+            // If we don't have enough data and haven't loaded everything yet, load more
+            if (requiredDataCount > totalResults.length && !allDataLoaded) {
+                console.log(`Need to load more data. Required: ${requiredDataCount}, Available: ${totalResults.length}`);
+                
+                // Show loading indicator
+                showLoading(true);
+                
+                try {
+                    // Keep loading until we have enough data for the requested page
+                    while (requiredDataCount > totalResults.length && !allDataLoaded) {
+                        const success = await loadMoreData();
+                        if (!success) {
+                            showLoading(false);
+                            showMessage('error', 'Failed to load data for the requested page');
+                            return;
+                        }
+                    }
+                } finally {
+                    showLoading(false);
+                }
+            }
+            
+            currentPage = page;
+            displayPaginatedResults();
+            
+            // Scroll to top of results
+            resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        async function loadMoreData() {
+            if (isLoadingMore || allDataLoaded || !currentQuery) {
+                return false;
+            }
+
+            isLoadingMore = true;
+            // Refresh pagination to show loading indicator
+            displayPaginatedResults();
+            
+            const nextOffset = totalResults.length;
+
+            try {
+                const response = await fetch('/api/sql/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        query: currentQuery,
+                        offset: nextOffset,
+                        limit: batchSize,
+                        get_total_count: false // We already have the total count
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    console.log('Loaded additional data:', data.results.length, 'rows');
+                    
+                    // Append new results to existing results
+                    totalResults = totalResults.concat(data.results);
+                    
+                    // Check if we've loaded all available data
+                    if (data.results.length < batchSize) {
+                        allDataLoaded = true;
+                    }
+                    
+                    return true;
+                } else {
+                    console.error('Failed to load more data:', data.error);
+                    showMessage('error', 'Failed to load additional data');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error loading more data:', error);
+                showMessage('error', 'Error loading additional data');
+                return false;
+            } finally {
+                isLoadingMore = false;
+                // Refresh pagination to hide loading indicator
+                displayPaginatedResults();
             }
         }
 
@@ -1566,41 +1811,73 @@
             });
         }
 
-        function exportResults() {
-            if (!window.currentResults) {
-                showMessage('error', 'No results to export');
+        async function exportResults() {
+            if (!currentQuery || !currentColumns.length) {
+                showMessage('error', 'No query results to export');
                 return;
             }
 
-            const { columns, results } = window.currentResults;
-            
-            // Create CSV content
-            let csvContent = columns.join(',') + '\n';
-            results.forEach(row => {
-                const csvRow = row.map(cell => {
-                    if (cell === null || cell === undefined) return '';
-                    const cellStr = String(cell);
-                    // Escape quotes and wrap in quotes if contains comma or newline
-                    if (cellStr.includes(',') || cellStr.includes('\n') || cellStr.includes('"')) {
-                        return '"' + cellStr.replace(/"/g, '""') + '"';
-                    }
-                    return cellStr;
-                });
-                csvContent += csvRow.join(',') + '\n';
-            });
+            // Show loading message
+            showMessage('info', 'Fetching complete dataset for export...');
 
-            // Create and download file
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', 'sql_results.csv');
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            showMessage('success', 'Results exported to CSV successfully!');
+            try {
+                // Fetch ALL data without any limit for export
+                const response = await fetch('/api/sql/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        query: currentQuery,
+                        offset: 0,
+                        limit: null, // No limit - fetch ALL data
+                        get_total_count: false
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    showMessage('error', 'Failed to fetch complete dataset for export');
+                    return;
+                }
+
+                console.log(`Export: Fetched ${data.results.length} complete records`);
+
+                const { columns, results } = data;
+                
+                // Create CSV content
+                let csvContent = columns.join(',') + '\n';
+                results.forEach(row => {
+                    const csvRow = row.map(cell => {
+                        if (cell === null || cell === undefined) return '';
+                        const cellStr = String(cell);
+                        // Escape quotes and wrap in quotes if contains comma or newline
+                        if (cellStr.includes(',') || cellStr.includes('\n') || cellStr.includes('"')) {
+                            return '"' + cellStr.replace(/"/g, '""') + '"';
+                        }
+                        return cellStr;
+                    });
+                    csvContent += csvRow.join(',') + '\n';
+                });
+
+                // Create and download file
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'sql_results.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showMessage('success', `${results.length} complete records exported to CSV successfully!`);
+                
+            } catch (error) {
+                console.error('Error fetching complete dataset for export:', error);
+                showMessage('error', 'Failed to export complete dataset');
+            }
         }
 
         function showDataPreview(columns, results) {
@@ -1710,187 +1987,6 @@
                     messageDiv.remove();
                 }
             }, 8000);
-        }
-
-        function openFullTable() {
-            if (!window.currentResults || !window.currentResults.columns || !window.currentResults.results) {
-                showMessage('error', 'No results available to display');
-                return;
-            }
-
-            // Create a new window with the full table
-            const newWindow = window.open('', '_blank', 'width=1400,height=800,scrollbars=yes,resizable=yes');
-            
-            if (!newWindow) {
-                showMessage('error', 'Please allow popups to open the full table view');
-                return;
-            }
-
-            // Create the HTML content for the new window
-            const htmlContent = `
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Full Table View - SQL Results</title>
-                    <style>
-                        body {
-                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                            margin: 20px;
-                            background: #f8fafc;
-                            overflow-x: auto;
-                        }
-                        .header {
-                            background: #667eea;
-                            color: white;
-                            padding: 20px;
-                            border-radius: 10px;
-                            margin-bottom: 20px;
-                            text-align: center;
-                        }
-                        .header h1 {
-                            margin: 0;
-                            font-size: 1.8rem;
-                        }
-                        .table-container {
-                            background: white;
-                            border-radius: 10px;
-                            padding-top:0;
-                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                            overflow: auto;
-                            max-height: 70vh;
-                            position: relative;
-                        }
-                        .full-table {
-                            width: 100%;
-                            border-collapse: collapse;
-                            font-size: 0.9rem;
-                            min-width: 1200px;
-                            position: relative;
-                        }
-                        .full-table thead {
-                            position: sticky;
-                            top: 0;
-                            z-index: 1000;
-                        }
-                        .full-table th {
-                            background: #667eea;
-                            color: white;
-                            padding: 12px 8px;
-                            text-align: left;
-                            position: sticky;
-                            top: 0;
-                            z-index: 1000;
-                            white-space: nowrap;
-                            min-width: 150px;
-                            font-weight: 600;
-                            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                            border-bottom: 2px solid #5a67d8;
-                        }
-                        .full-table td {
-                            padding: 8px;
-                            border-bottom: 1px solid #e2e8f0;
-                            word-break: break-word;
-                            white-space: normal;
-                            max-width: 200px;
-                            font-family: 'Courier New', monospace;
-                            font-size: 0.85rem;
-                            background: white;
-                            line-height: 1.4;
-                            vertical-align: top;
-                        }
-                        .full-table tr:nth-child(even) {
-                            background: #f1f5f9;
-                        }
-                        .full-table tr:hover {
-                            background: #e2e8f0;
-                        }
-                        
-                        /* Ensure proper sticky header behavior */
-                        .full-table thead::after {
-                            content: '';
-                            position: absolute;
-                            left: 0;
-                            right: 0;
-                            bottom: 0;
-                            height: 2px;
-                            background: #5a67d8;
-                            z-index: 1001;
-                        }
-                        
-                        /* Add subtle background to header area for better visibility */
-                        .full-table thead {
-                            background: linear-gradient(135deg, #667eea 0%, #5a67d8 100%);
-                        }
-                        
-                        /* Ensure table body doesn't overlap headers */
-                        .full-table tbody {
-                            position: relative;
-                            z-index: 1;
-                        }
-                        .stats {
-                            background: #e6fffa;
-                            border: 1px solid #81e6d9;
-                            border-radius: 8px;
-                            padding: 15px;
-                            margin-bottom: 20px;
-                            text-align: center;
-                        }
-                        .close-btn {
-                            background: #e53e3e;
-                            color: white;
-                            border: none;
-                            border-radius: 6px;
-                            padding: 10px 20px;
-                            font-size: 1rem;
-                            cursor: pointer;
-                            margin-bottom: 20px;
-                        }
-                        .close-btn:hover {
-                            background: #c53030;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <h1>🔍 Full Table View</h1>
-                        <p>Complete results from your SQL query</p>
-                    </div>
-                    
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <button class="close-btn" onclick="window.close()">Close Window</button>
-                    </div>
-                    
-                    <div class="stats">
-                        <strong>📊 Results Summary:</strong> ${window.currentResults.results.length} rows × ${window.currentResults.columns.length} columns
-                    </div>
-                    
-                    <div class="table-container">
-                        <table class="full-table">
-                            <thead>
-                                <tr>
-                                    ${window.currentResults.columns.map(col => `<th>${escapeHtml(String(col))}</th>`).join('')}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${window.currentResults.results.map(row => 
-                                    `<tr>${row.map(cell => 
-                                        `<td>${escapeHtml(cell === null || cell === undefined ? '<em>null</em>' : String(cell))}</td>`
-                                    ).join('')}</tr>`
-                                ).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </body>
-                </html>
-            `;
-
-            // Write the content to the new window
-            newWindow.document.write(htmlContent);
-            newWindow.document.close();
-            
-            showMessage('success', 'Full table opened in new tab!');
         }
 
         // Conversation management functions

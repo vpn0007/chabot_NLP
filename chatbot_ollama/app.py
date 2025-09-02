@@ -371,13 +371,15 @@ SQL Query:"""
                 "message": "SQL query has syntax errors"
             }
     
-    def execute_query(self, sql_query: str, limit: int = None) -> Dict[str, Any]:
+    def execute_query(self, sql_query: str, limit: int = None, offset: int = None, get_total_count: bool = False) -> Dict[str, Any]:
         """
-        Execute the SQL query and return results
+        Execute the SQL query and return results with optional pagination
         
         Args:
             sql_query: SQL query to execute
             limit: Maximum number of rows to return (None = no limit)
+            offset: Number of rows to skip (for pagination)
+            get_total_count: Whether to return total count of all records
             
         Returns:
             Dictionary with execution results
@@ -392,14 +394,35 @@ SQL Query:"""
             db_commands = ['SHOW TABLES', 'SHOW DATABASES', 'DESCRIBE', 'SHOW CREATE TABLE']
             is_db_command = any(cmd in sql_query.upper() for cmd in db_commands)
             
-            # Only add LIMIT if explicitly requested and it's a SELECT query (but not a database command)
-            if (limit is not None and 
+            total_count = None
+            
+            # Get total count if requested and it's a SELECT query
+            if (get_total_count and 
                 sql_query.strip().upper().startswith("SELECT") and 
+                not is_db_command):
+                # Create a count query from the original query
+                count_query = f"SELECT COUNT(*) FROM ({sql_query.rstrip(';')}) AS count_subquery;"
+                try:
+                    cursor.execute(count_query)
+                    total_count = cursor.fetchone()[0]
+                except Exception as e:
+                    print(f"Warning: Could not get total count: {e}")
+                    total_count = None
+            
+            # Add pagination if requested and it's a SELECT query (but not a database command)
+            paginated_query = sql_query
+            if (sql_query.strip().upper().startswith("SELECT") and 
                 "LIMIT" not in sql_query.upper() and 
                 not is_db_command):
-                sql_query = sql_query.rstrip(';') + f" LIMIT {limit};"
+                
+                # Add LIMIT and OFFSET for pagination
+                if limit is not None:
+                    if offset is not None:
+                        paginated_query = sql_query.rstrip(';') + f" LIMIT {limit} OFFSET {offset};"
+                    else:
+                        paginated_query = sql_query.rstrip(';') + f" LIMIT {limit};"
             
-            cursor.execute(sql_query)
+            cursor.execute(paginated_query)
             
             # Get column names
             columns = [description[0] for description in cursor.description] if cursor.description else []
@@ -409,13 +432,18 @@ SQL Query:"""
             
             cursor.close()
             
-            return {
+            response = {
                 "success": True,
                 "columns": columns,
                 "results": results,
                 "row_count": len(results),
-                "sql_executed": sql_query
+                "sql_executed": paginated_query
             }
+            
+            if total_count is not None:
+                response["total_count"] = total_count
+            
+            return response
             
         except Exception as e:
             return {
@@ -529,8 +557,10 @@ def process_sql_query():
         return jsonify({'error': 'No query provided'}), 400
     
     try:
-        # Get row limit from request
-        row_limit = data.get('row_limit')
+        # Get pagination parameters from request
+        offset = data.get('offset', 0)
+        limit = data.get('limit')
+        get_total_count = data.get('get_total_count', False)
         
         # Generate SQL from English query
         sql_query = sql_chatbot.generate_sql(english_query)
@@ -554,14 +584,14 @@ def process_sql_query():
                 'message': validation.get('message', 'SQL validation failed')
             })
         
-        # Execute query with row limit
-        result = sql_chatbot.execute_query(sql_query, limit=row_limit)
+        # Execute query with pagination parameters
+        result = sql_chatbot.execute_query(sql_query, limit=limit, offset=offset, get_total_count=get_total_count)
         
         # Add to conversation history
         sql_chatbot.add_to_conversation(english_query, sql_query, result)
         
         if result.get("success"):
-            return jsonify({
+            response = {
                 'english_query': english_query,
                 'sql_query': sql_query,
                 'valid': True,
@@ -571,7 +601,13 @@ def process_sql_query():
                 'row_count': result['row_count'],
                 'sql_executed': result['sql_executed'],
                 'conversation_count': len(sql_chatbot.conversation_history)
-            })
+            }
+            
+            # Add total count if available
+            if 'total_count' in result:
+                response['total_count'] = result['total_count']
+            
+            return jsonify(response)
         else:
             return jsonify({
                 'english_query': english_query,
