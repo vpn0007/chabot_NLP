@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <title>SQL Query Chatbot</title>
     <style>
         * {
@@ -593,6 +594,7 @@
             font-family: 'Courier New', monospace;
             font-size: 0.8rem;
             color: #2d3748;
+            margin-top: 10px;
             white-space: pre-wrap;
             word-break: break-all;
             max-height: 80px;
@@ -793,7 +795,7 @@
             will-change: transform;
             backface-visibility: hidden;
             /* Visual indicator for sticky behavior */
-            border-right: 3px solid #ff6b6b;
+            /* border-right: 3px solid #ff6b6b; */
         }
 
         .results-table td {
@@ -823,7 +825,7 @@
             will-change: transform;
             backface-visibility: hidden;
             /* Visual indicator for sticky behavior */
-            border-right: 2px solid #ff6b6b;
+            /* border-right: 2px solid #ff6b6b; */
         }
 
         /* Ensure proper background colors for sticky elements */
@@ -1079,20 +1081,7 @@
                 <small>🔄 Attempting to open browser automatically...</small>
             </div>
             
-            <div class="conversation-info" id="conversationInfo" style="display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>🔄 Conversation #<span id="conversationCount">0</span></span>
-                    <span>📊 <span id="totalQueries">0</span> queries processed</span>
-                </div>
-            </div>
-            
-            <div class="conversation-controls">
-                <button class="conversation-btn" onclick="showSchema()">📋 Schema</button>
-                <button class="conversation-btn" onclick="showChatHistory()">💬 Chat</button>
-                <button class="conversation-btn" onclick="showHistory()">📜 History</button>
-                <button class="conversation-btn" onclick="clearHistory()">🧹 Clear History</button>
-                <button class="conversation-btn" onclick="showHelp()">❓ Help</button>
-            </div>
+
         </div>
 
 
@@ -1150,21 +1139,12 @@
                 
                 <div class="sql-display" id="sqlDisplay" style="display: none;">
                     <strong>Generated SQL:</strong>
-                    <button class="copy-sql-btn" id="copySqlBtn" onclick="copySqlQuery()" title="Copy SQL Query">
-                        📋
-                    </button>
+                    <button class="copy-sql-btn"><i class="fa-regular fa-copy" onclick="copySqlQuery()" title="Copy SQL Query"></i></button>
                     <div class="copy-feedback" id="copyFeedback">Copied!</div>
                     <div class="sql-query-container" id="sqlQuery"></div>
                 </div>
 
-                <div class="data-preview" id="dataPreview" style="display: none;">
-                    <strong>Data Preview:</strong>
-                    <div class="preview-controls">
-                        <button class="preview-btn" onclick="toggleDataPreview()">👁️ Raw Data</button>
-                        <span class="preview-info">Click to see raw format</span>
-                    </div>
-                    <div class="raw-data" id="rawData" style="display: none;"></div>
-                </div>
+
 
                 <div class="results-container" id="resultsContainer">
                     <div style="text-align: center; padding: 40px; color: #718096;">
@@ -1188,13 +1168,19 @@
         window.addEventListener('load', () => {
             // Check if this page was opened automatically
             if (document.referrer === '' || document.referrer.includes('localhost')) {
-                browserStatus.style.display = 'block';
-                setTimeout(() => {
-                    browserStatus.innerHTML = '<small>✅ Browser opened successfully!</small>';
+                if (browserStatus) {
+                    browserStatus.style.display = 'block';
                     setTimeout(() => {
-                        browserStatus.style.display = 'none';
-                    }, 3000);
-                }, 2000);
+                        if (browserStatus) {
+                            browserStatus.innerHTML = '<small>✅ Browser opened successfully!</small>';
+                            setTimeout(() => {
+                                if (browserStatus) {
+                                    browserStatus.style.display = 'none';
+                                }
+                            }, 3000);
+                        }
+                    }, 2000);
+                }
             }
         });
         const queryInput = document.getElementById('queryInput');
@@ -1770,7 +1756,6 @@
                         .table-container {
                             background: white;
                             border-radius: 10px;
-                            padding: 20px;
                             padding-top:0;
                             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                             overflow: auto;
@@ -1874,7 +1859,7 @@
                     </div>
                     
                     <div style="text-align: center; margin-bottom: 20px;">
-                        <button class="close-btn" onclick="window.close()">❌ Close Window</button>
+                        <button class="close-btn" onclick="window.close()">Close Window</button>
                     </div>
                     
                     <div class="stats">
@@ -2075,12 +2060,15 @@
             const conversationCount = document.getElementById('conversationCount');
             const totalQueries = document.getElementById('totalQueries');
             
-            if (count > 0) {
-                conversationInfo.style.display = 'block';
-                conversationCount.textContent = count;
-                totalQueries.textContent = count;
-            } else {
-                conversationInfo.style.display = 'none';
+            // Only update if elements exist (they might be commented out)
+            if (conversationInfo && conversationCount && totalQueries) {
+                if (count > 0) {
+                    conversationInfo.style.display = 'block';
+                    conversationCount.textContent = count;
+                    totalQueries.textContent = count;
+                } else {
+                    conversationInfo.style.display = 'none';
+                }
             }
         }
 

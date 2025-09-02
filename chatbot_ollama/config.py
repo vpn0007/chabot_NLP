@@ -1,17 +1,14 @@
-# Snowflake Database Configuration
-# Update this file with your actual Snowflake credentials
+# MySQL Database Configuration
+# Update this file with your actual MySQL credentials
 
-# Snowflake Configuration
-SNOWFLAKE_CONFIG = {
-    'user': 'VPN0007',
+# MySQL Configuration
+MYSQL_CONFIG = {
+    'host': 'localhost',
+    'user': 'root',
     'password': 'Password@12345',
-    'account': 'ckcbvbc-ce87215',  # Working format (without region suffix)
-    'warehouse': 'COMPUTE_WH',
-    'database': 'CHATBOT_WAREHOUSE',
-    'schema': 'PUBLIC',
-    'role': 'ACCOUNTADMIN' ,  # Optional
-    'oscp_fail_open':True
+    'database': 'patient',
+    'port': 3306
 }
 
-# Note: This project is now Snowflake-specific only
-# The chatbot will automatically connect to Snowflake using the above configuration
+# Note: This project is now MySQL-specific only
+# The chatbot will automatically connect to MySQL using the above configuration

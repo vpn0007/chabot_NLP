@@ -1,11 +1,11 @@
-# Snowflake-specific requirements for the SQL Query Chatbot
+# MySQL-specific requirements for the SQL Query Chatbot
 
 # Core dependencies
 Flask==2.3.3
 langchain-ollama==0.1.0
 
-# Snowflake database connector
-snowflake-connector-python==3.6.0
+# MySQL database connector
+mysql-connector-python==8.2.0
 
 # Additional utilities
 python-dotenv==1.0.0
